@@ -1,68 +1,257 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Snake Pro</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
-    <style>
-        body { margin: 0; overflow: hidden; background: #2c3e50; touch-action: none; }
-        canvas { display: block; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Snake Pro - XxSinzoxX</title>
+  
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#2ecc71">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+  
+  <style>
+    body { 
+      margin: 0; 
+      padding: 0; 
+      overflow: hidden; 
+      background-color: #f5f8fa; 
+      touch-action: none; 
+    }
+    canvas { display: block; margin: auto; }
+  </style>
 </head>
 <body>
+
 <script>
-// كود اللعبة مباشرة هنا
-let snake = [{x: 10, y: 10}];
-let food = {x: 15, y: 15};
+// --- متغيرات اللعبة ---
+let snake = [];
+let foods = [];
+let maxFoods = 3;
+let walls = [];
 let dir = 'RIGHT';
+let moveBuffer = []; 
+let score = 0;
+let level = 1;
+let isRunning = false;
+let isPaused = false; 
 let gridSize = 20;
+let cols, rows;
+let slowMoTime = 0;
+let startX, startY;
+let screenShake = 0; 
+
+const TARGET_RATIO = 9 / 16;
 
 function setup() {
-    createCanvas(windowWidth, windowHeight);
-    frameRate(10);
+  let w = windowWidth, h = windowHeight;
+  if (w / h > TARGET_RATIO) w = h * TARGET_RATIO; else h = w / TARGET_RATIO;
+  let canvas = createCanvas(w, h);
+  
+  // منع السحب الافتراضي للمتصفح
+  let canvasElem = document.querySelector('canvas');
+  canvasElem.addEventListener('touchstart', (e) => e.preventDefault(), {passive: false});
+
+  cols = floor(width / gridSize);
+  rows = floor(height / gridSize);
+  initGame();
 }
 
 function draw() {
-    background(44, 62, 80);
-    
-    let head = {x: snake[0].x, y: snake[0].y};
-    if (dir === 'RIGHT') head.x++;
-    if (dir === 'LEFT') head.x--;
-    if (dir === 'UP') head.y--;
-    if (dir === 'DOWN') head.y++;
-    
-    // العبور من الجوانب
-    if (head.x < 0) head.x = floor(width/gridSize)-1;
-    if (head.x >= floor(width/gridSize)) head.x = 0;
-    if (head.y < 0) head.y = floor(height/gridSize)-1;
-    if (head.y >= floor(height/gridSize)) head.y = 0;
+  background(245, 248, 250);
+  
+  if (screenShake > 0) {
+    translate(random(-screenShake, screenShake), random(-screenShake, screenShake));
+    screenShake *= 0.8;
+  }
 
-    snake.unshift(head);
-    if (head.x === food.x && head.y === food.y) {
-        food = {x: floor(random(width/gridSize)), y: floor(random(height/gridSize))};
-    } else {
-        snake.pop();
+  if (!isRunning) { showStartScreen(); return; }
+  drawElements();
+  drawUI();
+  if (isPaused) { showPauseScreen(); return; }
+
+  let gameSpeed = (slowMoTime > 0) ? 5 : (10 + floor(level/2));
+  frameRate(gameSpeed);
+  if (slowMoTime > 0) slowMoTime--;
+  updateSnake();
+}
+
+function updateSnake() {
+  if (moveBuffer.length > 0) dir = moveBuffer.shift();
+  let head = { ...snake[0] };
+  if (dir === 'RIGHT') head.x++;
+  else if (dir === 'LEFT') head.x--;
+  else if (dir === 'UP') head.y--;
+  else if (dir === 'DOWN') head.y++;
+
+  // العبور من الجوانب
+  if (head.x < 0) head.x = cols - 1;
+  else if (head.x >= cols) head.x = 0;
+  if (head.y < 2) head.y = rows - 1; 
+  else if (head.y >= rows) head.y = 2;
+
+  if (checkCollision(head)) { 
+    screenShake = 10;
+    endGame(); 
+    return; 
+  }
+
+  snake.unshift(head);
+  let ate = false;
+  for (let i = foods.length - 1; i >= 0; i--) {
+    if (head.x === foods[i].x && head.y === foods[i].y) {
+      applyFoodEffect(foods[i].type);
+      foods.splice(i, 1);
+      ate = true;
+      break;
     }
+  }
 
-    fill(231, 76, 60);
-    rect(food.x * gridSize, food.y * gridSize, gridSize-2, gridSize-2);
-
-    fill(46, 204, 113);
-    for (let p of snake) {
-        rect(p.x * gridSize, p.y * gridSize, gridSize-2, gridSize-2);
-    }
+  if (ate) {
+    if (score > 0 && score % 4 === 0) { level++; spawnWall(); }
+    spawnFood(); 
+  } else {
+    snake.pop();
+  }
 }
 
 function touchStarted() {
-    let dx = mouseX - (snake[0].x * gridSize);
-    let dy = mouseY - (snake[0].y * gridSize);
-    if (abs(dx) > abs(dy)) {
-        dir = dx > 0 ? 'RIGHT' : 'LEFT';
-    } else {
-        dir = dy > 0 ? 'DOWN' : 'UP';
+  if (mouseX > width - 60 && mouseY < 50) {
+    if (isRunning) { isPaused = !isPaused; return false; }
+  }
+  if (!isRunning) { isRunning = true; isPaused = false; return false; }
+  startX = mouseX; startY = mouseY;
+  return false;
+}
+
+function touchEnded() {
+  if (isPaused) return;
+  let dx = mouseX - startX;
+  let dy = mouseY - startY;
+  let threshold = 15;
+  let nextMove = '';
+  if (abs(dx) > abs(dy) && abs(dx) > threshold) {
+    nextMove = dx > 0 ? 'RIGHT' : 'LEFT';
+  } else if (abs(dy) > threshold) {
+    nextMove = dy > 0 ? 'DOWN' : 'UP';
+  }
+  if (nextMove) {
+    let lastM = moveBuffer.length > 0 ? moveBuffer[moveBuffer.length - 1] : dir;
+    if (nextMove === 'RIGHT' && lastM !== 'LEFT') moveBuffer.push('RIGHT');
+    if (nextMove === 'LEFT' && lastM !== 'RIGHT') moveBuffer.push('LEFT');
+    if (nextMove === 'UP' && lastM !== 'DOWN') moveBuffer.push('UP');
+    if (nextMove === 'DOWN' && lastM !== 'UP') moveBuffer.push('DOWN');
+  }
+}
+
+function checkCollision(obj) {
+  for (let i = 1; i < snake.length; i++) {
+    if (obj.x === snake[i].x && obj.y === snake[i].y) return true;
+  }
+  for (let w of walls) {
+    if (obj.x === w.x && obj.y === w.y) return true;
+  }
+  return false;
+}
+
+function spawnFood() {
+  while (foods.length < maxFoods) {
+    let r = random(100);
+    let type = 'Normal';
+    if (level > 1) {
+      if (r < 75) type = 'Normal';
+      else if (r < 85) type = 'Gold';
+      else if (r < 92) type = 'Blue';
+      else type = 'Purple';
     }
-    return false;
+    let newFood, valid = false;
+    while (!valid) {
+      newFood = { x: floor(random(1, cols - 1)), y: floor(random(3, rows - 1)), type: type };
+      valid = !checkCollision(newFood);
+    }
+    foods.push(newFood);
+  }
+}
+
+function drawElements() {
+  stroke(220); strokeWeight(1); noFill();
+  rect(1, gridSize * 2, width-2, height - (gridSize * 2)-1, 5);
+  noStroke();
+  fill(120);
+  walls.forEach(w => rect(w.x * gridSize + 1, w.y * gridSize + 1, gridSize - 2, gridSize - 2, 4));
+  let pulse = sin(frameCount * 0.2) * 2;
+  foods.forEach(f => {
+    if (f.type === 'Normal') fill(255, 70, 70);
+    else if (f.type === 'Gold') fill(255, 215, 0);
+    else if (f.type === 'Blue') fill(50, 150, 255);
+    else fill(180, 50, 255);
+    ellipse(f.x * gridSize + gridSize/2, f.y * gridSize + gridSize/2, (gridSize - 6) + pulse);
+  });
+  snake.forEach((p, i) => {
+    let col = i === 0 ? color(46, 204, 113) : color(39, 174, 96, 200);
+    fill(col);
+    rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, i === 0 ? 8 : 4);
+  });
+}
+
+function drawUI() {
+  fill(255); noStroke();
+  rect(0, 0, width, gridSize * 2);
+  fill(50); textSize(width * 0.045); textAlign(LEFT, CENTER);
+  text(`  ⭐ Score: ${score}   🏆 Lvl: ${level}`, 10, gridSize);
+  push(); fill(240); stroke(210); rect(width - 45, 10, 35, 30, 5); 
+  fill(80); noStroke(); 
+  if (!isPaused) { rect(width - 36, 17, 4, 15); rect(width - 27, 17, 4, 15); }
+  else { triangle(width - 35, 17, width - 35, 32, width - 20, 24.5); }
+  pop();
+}
+
+function showStartScreen() {
+  textAlign(CENTER, CENTER);
+  fill(46, 204, 113); textSize(width * 0.1); textStyle(BOLD);
+  text("SNAKE PRO", width / 2, height * 0.15);
+  textStyle(NORMAL); fill(100); textSize(width * 0.04);
+  text("Dev: XxSinzoxX & Ammar", width / 2, height * 0.75);
+  fill(150); textSize(width * 0.05); text("Swipe to Start", width / 2, height * 0.25);
+  let guideY = height * 0.45;
+  textSize(width * 0.035); fill(80); text("GOLD: +5 | BLUE: Shrink | PURPLE: Slow", width / 2, guideY);
+}
+
+function initGame() {
+  snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
+  foods = []; walls = []; score = 0; level = 1;
+  dir = 'RIGHT'; moveBuffer = []; slowMoTime = 0;
+  spawnFood();
+}
+
+function showPauseScreen() {
+  fill(0, 0, 0, 100); rect(0, gridSize * 2, width, height);
+  fill(255); textAlign(CENTER, CENTER); textSize(width * 0.1); text("PAUSED", width / 2, height / 2);
+}
+
+function endGame() {
+  if (navigator.vibrate) navigator.vibrate(200);
+  alert("Game Over! Score: " + score);
+  initGame();
+  isRunning = false;
+}
+
+function applyFoodEffect(type) {
+  if (type === 'Normal') score++;
+  else if (type === 'Gold') score += 5;
+  else if (type === 'Blue') { score++; if(snake.length > 2) snake.pop(); }
+  else { score++; slowMoTime = 50; }
+}
+
+function spawnWall() {
+  let w;
+  for(let i=0; i<100; i++) {
+    w = { x: floor(random(1, cols - 1)), y: floor(random(3, rows - 1)) };
+    if (!checkCollision(w) && dist(w.x, w.y, snake[0].x, snake[0].y) > 5) {
+      walls.push(w); break;
+    }
+  }
 }
 </script>
 </body>
