@@ -3,29 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Snake Pro - XxSinzoxX</title>
-  
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#2ecc71">
-
+  <title>Feed Your Snake - Fixed Collision</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
-  
   <style>
-    body { 
-      margin: 0; 
-      padding: 0; 
-      overflow: hidden; 
-      background-color: #f5f8fa; 
-      touch-action: none; 
-    }
+    body { margin: 0; padding: 0; overflow: hidden; background-color: #f5f8fa; touch-action: none; }
     canvas { display: block; margin: auto; }
   </style>
 </head>
 <body>
-
 <script>
-// --- متغيرات اللعبة ---
 let snake = [];
 let foods = [];
 let maxFoods = 3;
@@ -42,17 +28,13 @@ let slowMoTime = 0;
 let startX, startY;
 let screenShake = 0; 
 
-const TARGET_RATIO = 9 / 16;
-
 function setup() {
   let w = windowWidth, h = windowHeight;
+  const TARGET_RATIO = 9 / 16;
   if (w / h > TARGET_RATIO) w = h * TARGET_RATIO; else h = w / TARGET_RATIO;
   let canvas = createCanvas(w, h);
-  
-  // منع السحب الافتراضي للمتصفح
   let canvasElem = document.querySelector('canvas');
   canvasElem.addEventListener('touchstart', (e) => e.preventDefault(), {passive: false});
-
   cols = floor(width / gridSize);
   rows = floor(height / gridSize);
   initGame();
@@ -60,12 +42,10 @@ function setup() {
 
 function draw() {
   background(245, 248, 250);
-  
   if (screenShake > 0) {
     translate(random(-screenShake, screenShake), random(-screenShake, screenShake));
     screenShake *= 0.8;
   }
-
   if (!isRunning) { showStartScreen(); return; }
   drawElements();
   drawUI();
@@ -79,21 +59,23 @@ function draw() {
 
 function updateSnake() {
   if (moveBuffer.length > 0) dir = moveBuffer.shift();
+  
   let head = { ...snake[0] };
   if (dir === 'RIGHT') head.x++;
   else if (dir === 'LEFT') head.x--;
   else if (dir === 'UP') head.y--;
   else if (dir === 'DOWN') head.y++;
 
-  // العبور من الجوانب
+  // معالجة الحدود (العبور من الجانب الآخر)
   if (head.x < 0) head.x = cols - 1;
   else if (head.x >= cols) head.x = 0;
   if (head.y < 2) head.y = rows - 1; 
   else if (head.y >= rows) head.y = 2;
 
+  // فحص التصادم (بعد تحديد الرأس الجديد وقبل إضافته)
   if (checkCollision(head)) { 
-    screenShake = 10;
-    endGame(); 
+    screenShake = 15;
+    setTimeout(() => endGame(), 10); // تأخير بسيط جداً ليظهر الرأس وهو يلمس العائق
     return; 
   }
 
@@ -116,70 +98,28 @@ function updateSnake() {
   }
 }
 
-function touchStarted() {
-  if (mouseX > width - 60 && mouseY < 50) {
-    if (isRunning) { isPaused = !isPaused; return false; }
-  }
-  if (!isRunning) { isRunning = true; isPaused = false; return false; }
-  startX = mouseX; startY = mouseY;
-  return false;
-}
-
-function touchEnded() {
-  if (isPaused) return;
-  let dx = mouseX - startX;
-  let dy = mouseY - startY;
-  let threshold = 15;
-  let nextMove = '';
-  if (abs(dx) > abs(dy) && abs(dx) > threshold) {
-    nextMove = dx > 0 ? 'RIGHT' : 'LEFT';
-  } else if (abs(dy) > threshold) {
-    nextMove = dy > 0 ? 'DOWN' : 'UP';
-  }
-  if (nextMove) {
-    let lastM = moveBuffer.length > 0 ? moveBuffer[moveBuffer.length - 1] : dir;
-    if (nextMove === 'RIGHT' && lastM !== 'LEFT') moveBuffer.push('RIGHT');
-    if (nextMove === 'LEFT' && lastM !== 'RIGHT') moveBuffer.push('LEFT');
-    if (nextMove === 'UP' && lastM !== 'DOWN') moveBuffer.push('UP');
-    if (nextMove === 'DOWN' && lastM !== 'UP') moveBuffer.push('DOWN');
-  }
-}
-
 function checkCollision(obj) {
-  for (let i = 1; i < snake.length; i++) {
+  // فحص الجسم (نبدأ من 1 لأن 0 هو الرأس الحالي)
+  for (let i = 0; i < snake.length; i++) {
     if (obj.x === snake[i].x && obj.y === snake[i].y) return true;
   }
+  // فحص الجدران
   for (let w of walls) {
     if (obj.x === w.x && obj.y === w.y) return true;
   }
   return false;
 }
 
-function spawnFood() {
-  while (foods.length < maxFoods) {
-    let r = random(100);
-    let type = 'Normal';
-    if (level > 1) {
-      if (r < 75) type = 'Normal';
-      else if (r < 85) type = 'Gold';
-      else if (r < 92) type = 'Blue';
-      else type = 'Purple';
-    }
-    let newFood, valid = false;
-    while (!valid) {
-      newFood = { x: floor(random(1, cols - 1)), y: floor(random(3, rows - 1)), type: type };
-      valid = !checkCollision(newFood);
-    }
-    foods.push(newFood);
-  }
-}
-
 function drawElements() {
-  stroke(220); strokeWeight(1); noFill();
-  rect(1, gridSize * 2, width-2, height - (gridSize * 2)-1, 5);
-  noStroke();
-  fill(120);
+  // حدود منطقة اللعب
+  stroke(220); strokeWeight(2); noFill();
+  rect(0, gridSize * 2, width, height - (gridSize * 2));
+  
+  // رسم الجدران
+  noStroke(); fill(100);
   walls.forEach(w => rect(w.x * gridSize + 1, w.y * gridSize + 1, gridSize - 2, gridSize - 2, 4));
+
+  // رسم الطعام
   let pulse = sin(frameCount * 0.2) * 2;
   foods.forEach(f => {
     if (f.type === 'Normal') fill(255, 70, 70);
@@ -188,6 +128,8 @@ function drawElements() {
     else fill(180, 50, 255);
     ellipse(f.x * gridSize + gridSize/2, f.y * gridSize + gridSize/2, (gridSize - 6) + pulse);
   });
+
+  // رسم الثعبان
   snake.forEach((p, i) => {
     let col = i === 0 ? color(46, 204, 113) : color(39, 174, 96, 200);
     fill(col);
@@ -196,38 +138,45 @@ function drawElements() {
 }
 
 function drawUI() {
-  fill(255); noStroke();
-  rect(0, 0, width, gridSize * 2);
+  fill(255); noStroke(); rect(0, 0, width, gridSize * 2);
   fill(50); textSize(width * 0.045); textAlign(LEFT, CENTER);
   text(`  ⭐ Score: ${score}   🏆 Lvl: ${level}`, 10, gridSize);
-  push(); fill(240); stroke(210); rect(width - 45, 10, 35, 30, 5); 
-  fill(80); noStroke(); 
-  if (!isPaused) { rect(width - 36, 17, 4, 15); rect(width - 27, 17, 4, 15); }
-  else { triangle(width - 35, 17, width - 35, 32, width - 20, 24.5); }
-  pop();
+  if (isPaused) { fill(200, 0, 0); text(" PAUSED", width/2, gridSize); }
 }
 
 function showStartScreen() {
   textAlign(CENTER, CENTER);
   fill(46, 204, 113); textSize(width * 0.1); textStyle(BOLD);
-  text("SNAKE PRO", width / 2, height * 0.15);
-  textStyle(NORMAL); fill(100); textSize(width * 0.04);
-  text("Dev: XxSinzoxX & Ammar", width / 2, height * 0.75);
-  fill(150); textSize(width * 0.05); text("Swipe to Start", width / 2, height * 0.25);
-  let guideY = height * 0.45;
-  textSize(width * 0.035); fill(80); text("GOLD: +5 | BLUE: Shrink | PURPLE: Slow", width / 2, guideY);
+  text("SNAKE PRO", width / 2, height * 0.3);
+  fill(100); textStyle(NORMAL); textSize(width * 0.05);
+  text("Swipe to Start", width / 2, height * 0.5);
+}
+
+function touchStarted() {
+  if (!isRunning) { isRunning = true; return false; }
+  startX = mouseX; startY = mouseY;
+  return false;
+}
+
+function touchEnded() {
+  let dx = mouseX - startX;
+  let dy = mouseY - startY;
+  if (abs(dx) > abs(dy) && abs(dx) > 10) {
+    let last = moveBuffer.length > 0 ? moveBuffer[moveBuffer.length-1] : dir;
+    if (dx > 0 && last !== 'LEFT') moveBuffer.push('RIGHT');
+    if (dx < 0 && last !== 'RIGHT') moveBuffer.push('LEFT');
+  } else if (abs(dy) > 10) {
+    let last = moveBuffer.length > 0 ? moveBuffer[moveBuffer.length-1] : dir;
+    if (dy > 0 && last !== 'UP') moveBuffer.push('DOWN');
+    if (dy < 0 && last !== 'DOWN') moveBuffer.push('UP');
+  }
 }
 
 function initGame() {
-  snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
+  snake = [{x: 10, y: 10}, {x: 9, y: 10}];
   foods = []; walls = []; score = 0; level = 1;
   dir = 'RIGHT'; moveBuffer = []; slowMoTime = 0;
   spawnFood();
-}
-
-function showPauseScreen() {
-  fill(0, 0, 0, 100); rect(0, gridSize * 2, width, height);
-  fill(255); textAlign(CENTER, CENTER); textSize(width * 0.1); text("PAUSED", width / 2, height / 2);
 }
 
 function endGame() {
@@ -244,14 +193,17 @@ function applyFoodEffect(type) {
   else { score++; slowMoTime = 50; }
 }
 
-function spawnWall() {
-  let w;
-  for(let i=0; i<100; i++) {
-    w = { x: floor(random(1, cols - 1)), y: floor(random(3, rows - 1)) };
-    if (!checkCollision(w) && dist(w.x, w.y, snake[0].x, snake[0].y) > 5) {
-      walls.push(w); break;
-    }
+function spawnFood() {
+  while (foods.length < maxFoods) {
+    let type = random(100) < 80 ? 'Normal' : 'Gold';
+    let newFood = { x: floor(random(cols)), y: floor(random(2, rows)) };
+    if (!checkCollision(newFood)) foods.push({ ...newFood, type });
   }
+}
+
+function spawnWall() {
+  let w = { x: floor(random(cols)), y: floor(random(2, rows)) };
+  if (!checkCollision(w)) walls.push(w);
 }
 </script>
 </body>
