@@ -3,207 +3,271 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Feed Your Snake - Fixed Collision</title>
+  <title>Snake Pro Elite - XxSinzoxX</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
   <style>
-    body { margin: 0; padding: 0; overflow: hidden; background-color: #f5f8fa; touch-action: none; }
+    body { margin: 0; padding: 0; overflow: hidden; background-color: #1a1a1a; touch-action: none; }
     canvas { display: block; margin: auto; }
   </style>
 </head>
 <body>
 <script>
-let snake = [];
+let snake = [], aiSnake = [];
 let foods = [];
-let maxFoods = 3;
 let walls = [];
-let dir = 'RIGHT';
-let moveBuffer = []; 
-let score = 0;
-let level = 1;
-let isRunning = false;
-let isPaused = false; 
-let gridSize = 20;
-let cols, rows;
-let slowMoTime = 0;
-let startX, startY;
-let screenShake = 0; 
+let dir = 'RIGHT', aiDir = 'RIGHT';
+let score = 0, level = 1;
+let isRunning = false, aiActive = false;
+let gridSize = 20, cols, rows;
+let touchPoint = null, msg = "", msgTimer = 0;
+let lastGoldPos = null;
 
 function setup() {
   let w = windowWidth, h = windowHeight;
   const TARGET_RATIO = 9 / 16;
   if (w / h > TARGET_RATIO) w = h * TARGET_RATIO; else h = w / TARGET_RATIO;
-  let canvas = createCanvas(w, h);
-  let canvasElem = document.querySelector('canvas');
-  canvasElem.addEventListener('touchstart', (e) => e.preventDefault(), {passive: false});
+  createCanvas(w, h);
   cols = floor(width / gridSize);
   rows = floor(height / gridSize);
   initGame();
 }
 
 function draw() {
-  background(245, 248, 250);
-  if (screenShake > 0) {
-    translate(random(-screenShake, screenShake), random(-screenShake, screenShake));
-    screenShake *= 0.8;
-  }
+  background(30);
   if (!isRunning) { showStartScreen(); return; }
+  
+  drawGrid();
   drawElements();
   drawUI();
-  if (isPaused) { showPauseScreen(); return; }
+  drawJoystick();
 
-  let gameSpeed = (slowMoTime > 0) ? 5 : (10 + floor(level/2));
-  frameRate(gameSpeed);
-  if (slowMoTime > 0) slowMoTime--;
+  let speed = 10 + floor(level / 2);
+  frameRate(speed);
+
   updateSnake();
+  if (aiActive) updateAISnake();
+  checkLevelUp();
 }
 
 function updateSnake() {
-  if (moveBuffer.length > 0) dir = moveBuffer.shift();
-  
   let head = { ...snake[0] };
   if (dir === 'RIGHT') head.x++;
   else if (dir === 'LEFT') head.x--;
   else if (dir === 'UP') head.y--;
   else if (dir === 'DOWN') head.y++;
 
-  // معالجة الحدود (العبور من الجانب الآخر)
-  if (head.x < 0) head.x = cols - 1;
-  else if (head.x >= cols) head.x = 0;
-  if (head.y < 2) head.y = rows - 1; 
-  else if (head.y >= rows) head.y = 2;
+  // العبور من الجوانب
+  head.x = (head.x + cols) % cols;
+  head.y = head.y < 2 ? rows - 1 : (head.y >= rows ? 2 : head.y);
 
-  // فحص التصادم (بعد تحديد الرأس الجديد وقبل إضافته)
-  if (checkCollision(head)) { 
-    screenShake = 15;
-    setTimeout(() => endGame(), 10); // تأخير بسيط جداً ليظهر الرأس وهو يلمس العائق
-    return; 
-  }
+  if (checkCollision(head, snake) || checkWallCollision(head)) { endGame(); return; }
 
   snake.unshift(head);
   let ate = false;
   for (let i = foods.length - 1; i >= 0; i--) {
     if (head.x === foods[i].x && head.y === foods[i].y) {
-      applyFoodEffect(foods[i].type);
+      if (foods[i].type === 'Gold') lastGoldPos = {x: head.x, y: head.y};
+      applyEffect(foods[i].type);
       foods.splice(i, 1);
       ate = true;
       break;
     }
   }
 
-  if (ate) {
-    if (score > 0 && score % 4 === 0) { level++; spawnWall(); }
-    spawnFood(); 
-  } else {
-    snake.pop();
+  if (!ate) {
+    let tail = snake.pop();
+    if (lastGoldPos && tail.x === lastGoldPos.x && tail.y === lastGoldPos.y) {
+      walls.push({...lastGoldPos});
+      lastGoldPos = null;
+    }
   }
-}
-
-function checkCollision(obj) {
-  // فحص الجسم (نبدأ من 1 لأن 0 هو الرأس الحالي)
-  for (let i = 0; i < snake.length; i++) {
-    if (obj.x === snake[i].x && obj.y === snake[i].y) return true;
-  }
-  // فحص الجدران
-  for (let w of walls) {
-    if (obj.x === w.x && obj.y === w.y) return true;
-  }
-  return false;
-}
-
-function drawElements() {
-  // حدود منطقة اللعب
-  stroke(220); strokeWeight(2); noFill();
-  rect(0, gridSize * 2, width, height - (gridSize * 2));
-  
-  // رسم الجدران
-  noStroke(); fill(100);
-  walls.forEach(w => rect(w.x * gridSize + 1, w.y * gridSize + 1, gridSize - 2, gridSize - 2, 4));
-
-  // رسم الطعام
-  let pulse = sin(frameCount * 0.2) * 2;
-  foods.forEach(f => {
-    if (f.type === 'Normal') fill(255, 70, 70);
-    else if (f.type === 'Gold') fill(255, 215, 0);
-    else if (f.type === 'Blue') fill(50, 150, 255);
-    else fill(180, 50, 255);
-    ellipse(f.x * gridSize + gridSize/2, f.y * gridSize + gridSize/2, (gridSize - 6) + pulse);
-  });
-
-  // رسم الثعبان
-  snake.forEach((p, i) => {
-    let col = i === 0 ? color(46, 204, 113) : color(39, 174, 96, 200);
-    fill(col);
-    rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, i === 0 ? 8 : 4);
-  });
-}
-
-function drawUI() {
-  fill(255); noStroke(); rect(0, 0, width, gridSize * 2);
-  fill(50); textSize(width * 0.045); textAlign(LEFT, CENTER);
-  text(`  ⭐ Score: ${score}   🏆 Lvl: ${level}`, 10, gridSize);
-  if (isPaused) { fill(200, 0, 0); text(" PAUSED", width/2, gridSize); }
-}
-
-function showStartScreen() {
-  textAlign(CENTER, CENTER);
-  fill(46, 204, 113); textSize(width * 0.1); textStyle(BOLD);
-  text("SNAKE PRO", width / 2, height * 0.3);
-  fill(100); textStyle(NORMAL); textSize(width * 0.05);
-  text("Swipe to Start", width / 2, height * 0.5);
-}
-
-function touchStarted() {
-  if (!isRunning) { isRunning = true; return false; }
-  startX = mouseX; startY = mouseY;
-  return false;
-}
-
-function touchEnded() {
-  let dx = mouseX - startX;
-  let dy = mouseY - startY;
-  if (abs(dx) > abs(dy) && abs(dx) > 10) {
-    let last = moveBuffer.length > 0 ? moveBuffer[moveBuffer.length-1] : dir;
-    if (dx > 0 && last !== 'LEFT') moveBuffer.push('RIGHT');
-    if (dx < 0 && last !== 'RIGHT') moveBuffer.push('LEFT');
-  } else if (abs(dy) > 10) {
-    let last = moveBuffer.length > 0 ? moveBuffer[moveBuffer.length-1] : dir;
-    if (dy > 0 && last !== 'UP') moveBuffer.push('DOWN');
-    if (dy < 0 && last !== 'DOWN') moveBuffer.push('UP');
-  }
-}
-
-function initGame() {
-  snake = [{x: 10, y: 10}, {x: 9, y: 10}];
-  foods = []; walls = []; score = 0; level = 1;
-  dir = 'RIGHT'; moveBuffer = []; slowMoTime = 0;
   spawnFood();
 }
 
-function endGame() {
-  if (navigator.vibrate) navigator.vibrate(200);
-  alert("Game Over! Score: " + score);
-  initGame();
-  isRunning = false;
+function updateAISnake() {
+  let head = { ...aiSnake[0] };
+  let target = foods[0];
+  if (target) {
+    if (head.x < target.x) aiDir = 'RIGHT';
+    else if (head.x > target.x) aiDir = 'LEFT';
+    else if (head.y < target.y) aiDir = 'DOWN';
+    else if (head.y > target.y) aiDir = 'UP';
+  }
+
+  if (aiDir === 'RIGHT') head.x++;
+  else if (aiDir === 'LEFT') head.x--;
+  else if (aiDir === 'UP') head.y--;
+  else if (aiDir === 'DOWN') head.y++;
+  
+  head.x = (head.x + cols) % cols;
+  head.y = head.y < 2 ? rows - 1 : (head.y >= rows ? 2 : head.y);
+
+  aiSnake.unshift(head);
+  let ate = false;
+  for (let i = foods.length - 1; i >= 0; i--) {
+    if (head.x === foods[i].x && head.y === foods[i].y) {
+      foods.splice(i, 1);
+      ate = true;
+      break;
+    }
+  }
+  if (!ate) aiSnake.pop();
 }
 
-function applyFoodEffect(type) {
-  if (type === 'Normal') score++;
+function checkLevelUp() {
+  let oldLevel = level;
+  level = 1 + floor(score / 10);
+  if (level > oldLevel) {
+    showMsg("عاش يا بطل! مستوى " + level);
+    if (level === 5) {
+      for(let i=0; i<5; i++) spawnWall();
+      showMsg("احذر.. ظهرت العوائق!");
+    }
+    if (level === 10 && !aiActive) {
+      aiActive = true;
+      aiSnake = [{x: 2, y: 5}];
+      showMsg("تحذير: دخل الثعبان المنافس!");
+    }
+  }
+}
+
+function applyEffect(type) {
+  if (type === 'Normal') score += 1;
   else if (type === 'Gold') score += 5;
-  else if (type === 'Blue') { score++; if(snake.length > 2) snake.pop(); }
-  else { score++; slowMoTime = 50; }
+  else if (type === 'Blue') score += 2;
+}
+
+function drawElements() {
+  // جدران
+  fill(150);
+  walls.forEach(w => rect(w.x * gridSize, w.y * gridSize, gridSize-1, gridSize-1, 3));
+  
+  // طعام
+  foods.forEach(f => {
+    if (f.type === 'Normal') fill(255, 50, 50);
+    else if (f.type === 'Gold') fill(255, 215, 0);
+    else fill(0, 150, 255);
+    ellipse(f.x * gridSize + gridSize/2, f.y * gridSize + gridSize/2, gridSize - 5);
+    
+    f.timer--;
+    if (f.timer <= 0) {
+      walls.push({x: f.x, y: f.y});
+      foods.splice(foods.indexOf(f), 1);
+    }
+  });
+
+  // لاعب
+  snake.forEach((p, i) => {
+    fill(i === 0 ? '#2ecc71' : '#27ae60');
+    rect(p.x * gridSize, p.y * gridSize, gridSize-1, gridSize-1, 5);
+  });
+
+  // ذكاء اصطناعي
+  if (aiActive) {
+    aiSnake.forEach((p, i) => {
+      fill(i === 0 ? '#e74c3c' : '#c0392b');
+      rect(p.x * gridSize, p.y * gridSize, gridSize-1, gridSize-1, 5);
+    });
+  }
 }
 
 function spawnFood() {
-  while (foods.length < maxFoods) {
-    let type = random(100) < 80 ? 'Normal' : 'Gold';
-    let newFood = { x: floor(random(cols)), y: floor(random(2, rows)) };
-    if (!checkCollision(newFood)) foods.push({ ...newFood, type });
+  let max = 2; // عدد التفاح الأحمر
+  let currentNormal = foods.filter(f => f.type === 'Normal').length;
+  
+  while (currentNormal < max) {
+    let f = { x: floor(random(cols)), y: floor(random(2, rows)), type: 'Normal', timer: 300 };
+    if (!checkWallCollision(f)) { foods.push(f); currentNormal++; }
+  }
+
+  if (level >= 5 && foods.length < 4 && random(1) < 0.02) {
+    let type = random(['Gold', 'Blue']);
+    let f = { x: floor(random(cols)), y: floor(random(2, rows)), type: type, timer: 200 };
+    if (!checkWallCollision(f)) foods.push(f);
   }
 }
 
 function spawnWall() {
   let w = { x: floor(random(cols)), y: floor(random(2, rows)) };
-  if (!checkCollision(w)) walls.push(w);
+  if (!checkWallCollision(w)) walls.push(w);
+}
+
+function checkCollision(head, body) {
+  for (let i = 1; i < body.length; i++) {
+    if (head.x === body[i].x && head.y === body[i].y) return true;
+  }
+  return false;
+}
+
+function checkWallCollision(obj) {
+  return walls.some(w => w.x === obj.x && w.y === obj.y);
+}
+
+function drawUI() {
+  fill(255); textSize(18); textAlign(LEFT);
+  text(`⭐ Score: ${score} | Lvl: ${level}`, 20, 30);
+  
+  if (msgTimer > 0) {
+    textAlign(CENTER); textSize(24); fill(255, 255, 0);
+    text(msg, width/2, height/2);
+    msgTimer--;
+  }
+  
+  // دليل الطعام
+  textSize(12); fill(200); textAlign(RIGHT);
+  text("Red: +1 | Gold: +5 (Wall) | Blue: +2", width - 20, 30);
+}
+
+function drawJoystick() {
+  if (touchPoint) {
+    noFill(); stroke(255, 50); strokeWeight(2);
+    ellipse(touchPoint.x, touchPoint.y, 60);
+    fill(255, 30);
+    ellipse(touchPoint.x + (mouseX - touchPoint.x)*0.2, touchPoint.y + (mouseY - touchPoint.y)*0.2, 30);
+  }
+}
+
+function touchStarted() {
+  if (!isRunning) { isRunning = true; return false; }
+  touchPoint = {x: mouseX, y: mouseY};
+  return false;
+}
+
+function touchEnded() {
+  if (!touchPoint) return;
+  let dx = mouseX - touchPoint.x;
+  let dy = mouseY - touchPoint.y;
+  if (abs(dx) > abs(dy)) dir = dx > 0 ? 'RIGHT' : 'LEFT';
+  else dir = dy > 0 ? 'DOWN' : 'UP';
+  touchPoint = null;
+  return false;
+}
+
+function showMsg(t) { msg = t; msgTimer = 60; }
+
+function initGame() {
+  snake = [{x: 10, y: 10}, {x: 9, y: 10}];
+  foods = []; walls = []; score = 0; level = 1;
+  aiActive = false; isRunning = false;
+  spawnFood();
+}
+
+function endGame() {
+  alert("Game Over! Score: " + score);
+  initGame();
+}
+
+function drawGrid() {
+  stroke(40);
+  for(let i=0; i<width; i+=gridSize) line(i, gridSize*2, i, height);
+  for(let j=gridSize*2; j<height; j+=gridSize) line(0, j, width, j);
+}
+
+function showStartScreen() {
+  textAlign(CENTER); fill(46, 204, 113); textSize(40);
+  text("SNAKE ELITE", width/2, height/2 - 20);
+  textSize(20); fill(200);
+  text("Touch to Start", width/2, height/2 + 20);
 }
 </script>
 </body>
