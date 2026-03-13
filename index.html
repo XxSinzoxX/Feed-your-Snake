@@ -1,28 +1,69 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Feed Your Snake</title>
-  
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#2ecc71">
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
-
-  <style>
-    body { 
-      margin: 0; 
-      padding: 0; 
-      overflow: hidden; 
-      background-color: #f5f8fa; 
-      touch-action: none; 
-    }
-    canvas { display: block; margin: auto; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Snake Pro</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #2c3e50; touch-action: none; }
+        canvas { display: block; }
+    </style>
 </head>
 <body>
-  <script src="sketch.js"></script>
+<script>
+// كود اللعبة مباشرة هنا
+let snake = [{x: 10, y: 10}];
+let food = {x: 15, y: 15};
+let dir = 'RIGHT';
+let gridSize = 20;
+
+function setup() {
+    createCanvas(windowWidth, windowHeight);
+    frameRate(10);
+}
+
+function draw() {
+    background(44, 62, 80);
+    
+    let head = {x: snake[0].x, y: snake[0].y};
+    if (dir === 'RIGHT') head.x++;
+    if (dir === 'LEFT') head.x--;
+    if (dir === 'UP') head.y--;
+    if (dir === 'DOWN') head.y++;
+    
+    // العبور من الجوانب
+    if (head.x < 0) head.x = floor(width/gridSize)-1;
+    if (head.x >= floor(width/gridSize)) head.x = 0;
+    if (head.y < 0) head.y = floor(height/gridSize)-1;
+    if (head.y >= floor(height/gridSize)) head.y = 0;
+
+    snake.unshift(head);
+    if (head.x === food.x && head.y === food.y) {
+        food = {x: floor(random(width/gridSize)), y: floor(random(height/gridSize))};
+    } else {
+        snake.pop();
+    }
+
+    fill(231, 76, 60);
+    rect(food.x * gridSize, food.y * gridSize, gridSize-2, gridSize-2);
+
+    fill(46, 204, 113);
+    for (let p of snake) {
+        rect(p.x * gridSize, p.y * gridSize, gridSize-2, gridSize-2);
+    }
+}
+
+function touchStarted() {
+    let dx = mouseX - (snake[0].x * gridSize);
+    let dy = mouseY - (snake[0].y * gridSize);
+    if (abs(dx) > abs(dy)) {
+        dir = dx > 0 ? 'RIGHT' : 'LEFT';
+    } else {
+        dir = dy > 0 ? 'DOWN' : 'UP';
+    }
+    return false;
+}
+</script>
 </body>
 </html>
