@@ -6,7 +6,7 @@
   <title>Snake Pro Elite - XxSinzoxX</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
   <style>
-    body { margin: 0; padding: 0; overflow: hidden; background-color: #1a1a1a; touch-action: none; }
+    body { margin: 0; padding: 0; overflow: hidden; background-color: #f5f8fa; touch-action: none; }
     canvas { display: block; margin: auto; }
   </style>
 </head>
@@ -15,7 +15,7 @@
 let snake = [], aiSnake = [];
 let foods = [];
 let walls = [];
-let dir = 'RIGHT', aiDir = 'RIGHT';
+let dir = 'RIGHT', nextDir = 'RIGHT', aiDir = 'RIGHT';
 let score = 0, level = 1;
 let isRunning = false, aiActive = false;
 let gridSize = 20, cols, rows;
@@ -33,15 +33,15 @@ function setup() {
 }
 
 function draw() {
-  background(30);
+  background(245, 248, 250);
   if (!isRunning) { showStartScreen(); return; }
   
-  drawGrid();
   drawElements();
   drawUI();
   drawJoystick();
 
-  let speed = 10 + floor(level / 2);
+  // سرعة أبطأ في البداية
+  let speed = 7 + floor(level / 2);
   frameRate(speed);
 
   updateSnake();
@@ -50,17 +50,19 @@ function draw() {
 }
 
 function updateSnake() {
+  dir = nextDir;
   let head = { ...snake[0] };
   if (dir === 'RIGHT') head.x++;
   else if (dir === 'LEFT') head.x--;
   else if (dir === 'UP') head.y--;
   else if (dir === 'DOWN') head.y++;
 
-  // العبور من الجوانب
   head.x = (head.x + cols) % cols;
   head.y = head.y < 2 ? rows - 1 : (head.y >= rows ? 2 : head.y);
 
-  if (checkCollision(head, snake) || checkWallCollision(head)) { endGame(); return; }
+  // تحديد سبب الخسارة
+  if (checkCollision(head, snake)) { endGame("لقد أكلت نفسك! 🐍"); return; }
+  if (checkWallCollision(head)) { endGame("اصطدمت بالعائق! 🧱"); return; }
 
   snake.unshift(head);
   let ate = false;
@@ -76,6 +78,7 @@ function updateSnake() {
 
   if (!ate) {
     let tail = snake.pop();
+    // تحويل مكان التفاحة الذهبية لعائق بعد مرور الذيل
     if (lastGoldPos && tail.x === lastGoldPos.x && tail.y === lastGoldPos.y) {
       walls.push({...lastGoldPos});
       lastGoldPos = null;
@@ -93,23 +96,16 @@ function updateAISnake() {
     else if (head.y < target.y) aiDir = 'DOWN';
     else if (head.y > target.y) aiDir = 'UP';
   }
-
   if (aiDir === 'RIGHT') head.x++;
   else if (aiDir === 'LEFT') head.x--;
   else if (aiDir === 'UP') head.y--;
   else if (aiDir === 'DOWN') head.y++;
-  
   head.x = (head.x + cols) % cols;
   head.y = head.y < 2 ? rows - 1 : (head.y >= rows ? 2 : head.y);
-
   aiSnake.unshift(head);
   let ate = false;
   for (let i = foods.length - 1; i >= 0; i--) {
-    if (head.x === foods[i].x && head.y === foods[i].y) {
-      foods.splice(i, 1);
-      ate = true;
-      break;
-    }
+    if (head.x === foods[i].x && head.y === foods[i].y) { foods.splice(i, 1); ate = true; break; }
   }
   if (!ate) aiSnake.pop();
 }
@@ -119,10 +115,7 @@ function checkLevelUp() {
   level = 1 + floor(score / 10);
   if (level > oldLevel) {
     showMsg("عاش يا بطل! مستوى " + level);
-    if (level === 5) {
-      for(let i=0; i<5; i++) spawnWall();
-      showMsg("احذر.. ظهرت العوائق!");
-    }
+    if (level === 5) { for(let i=0; i<5; i++) spawnWall(); }
     if (level === 10 && !aiActive) {
       aiActive = true;
       aiSnake = [{x: 2, y: 5}];
@@ -138,17 +131,19 @@ function applyEffect(type) {
 }
 
 function drawElements() {
-  // جدران
-  fill(150);
-  walls.forEach(w => rect(w.x * gridSize, w.y * gridSize, gridSize-1, gridSize-1, 3));
+  // منطقة اللعب
+  fill(255); noStroke(); rect(0, gridSize*2, width, height);
+  
+  // عوائق
+  fill(120);
+  walls.forEach(w => rect(w.x * gridSize + 1, w.y * gridSize + 1, gridSize - 2, gridSize - 2, 4));
   
   // طعام
   foods.forEach(f => {
-    if (f.type === 'Normal') fill(255, 50, 50);
+    if (f.type === 'Normal') fill(255, 70, 70);
     else if (f.type === 'Gold') fill(255, 215, 0);
-    else fill(0, 150, 255);
-    ellipse(f.x * gridSize + gridSize/2, f.y * gridSize + gridSize/2, gridSize - 5);
-    
+    else fill(50, 150, 255);
+    ellipse(f.x * gridSize + gridSize/2, f.y * gridSize + gridSize/2, gridSize - 6);
     f.timer--;
     if (f.timer <= 0) {
       walls.push({x: f.x, y: f.y});
@@ -159,37 +154,34 @@ function drawElements() {
   // لاعب
   snake.forEach((p, i) => {
     fill(i === 0 ? '#2ecc71' : '#27ae60');
-    rect(p.x * gridSize, p.y * gridSize, gridSize-1, gridSize-1, 5);
+    rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, i === 0 ? 8 : 4);
   });
 
   // ذكاء اصطناعي
   if (aiActive) {
     aiSnake.forEach((p, i) => {
       fill(i === 0 ? '#e74c3c' : '#c0392b');
-      rect(p.x * gridSize, p.y * gridSize, gridSize-1, gridSize-1, 5);
+      rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, 5);
     });
   }
 }
 
 function spawnFood() {
-  let max = 2; // عدد التفاح الأحمر
   let currentNormal = foods.filter(f => f.type === 'Normal').length;
-  
-  while (currentNormal < max) {
-    let f = { x: floor(random(cols)), y: floor(random(2, rows)), type: 'Normal', timer: 300 };
+  while (currentNormal < 2) {
+    let f = { x: floor(random(cols)), y: floor(random(2, rows)), type: 'Normal', timer: 500 };
     if (!checkWallCollision(f)) { foods.push(f); currentNormal++; }
   }
-
-  if (level >= 5 && foods.length < 4 && random(1) < 0.02) {
+  if (level >= 5 && foods.length < 4 && random(1) < 0.01) {
     let type = random(['Gold', 'Blue']);
-    let f = { x: floor(random(cols)), y: floor(random(2, rows)), type: type, timer: 200 };
+    let f = { x: floor(random(cols)), y: floor(random(2, rows)), type: type, timer: 300 };
     if (!checkWallCollision(f)) foods.push(f);
   }
 }
 
 function spawnWall() {
-  let w = { x: floor(random(cols)), y: floor(random(2, rows)) };
-  if (!checkWallCollision(w)) walls.push(w);
+  let w = { x: floor(random(cols)), y: floor(random(3, rows)) };
+  if (!checkWallCollision(w) && dist(w.x, w.y, snake[0].x, snake[0].y) > 5) walls.push(w);
 }
 
 function checkCollision(head, body) {
@@ -204,26 +196,24 @@ function checkWallCollision(obj) {
 }
 
 function drawUI() {
-  fill(255); textSize(18); textAlign(LEFT);
-  text(`⭐ Score: ${score} | Lvl: ${level}`, 20, 30);
+  fill(255); rect(0, 0, width, gridSize * 2);
+  fill(50); textSize(width * 0.04); textAlign(LEFT, CENTER);
+  text(` ⭐ Score: ${score} | Level: ${level}`, 15, gridSize);
   
+  textSize(width * 0.03); textAlign(RIGHT);
+  text("🔴 +1 | 🟡 +5 (Wall) | 🔵 +2", width - 15, gridSize);
+
   if (msgTimer > 0) {
-    textAlign(CENTER); textSize(24); fill(255, 255, 0);
+    textAlign(CENTER); textSize(width * 0.06); fill(255, 100, 0);
     text(msg, width/2, height/2);
     msgTimer--;
   }
-  
-  // دليل الطعام
-  textSize(12); fill(200); textAlign(RIGHT);
-  text("Red: +1 | Gold: +5 (Wall) | Blue: +2", width - 20, 30);
 }
 
 function drawJoystick() {
   if (touchPoint) {
-    noFill(); stroke(255, 50); strokeWeight(2);
-    ellipse(touchPoint.x, touchPoint.y, 60);
-    fill(255, 30);
-    ellipse(touchPoint.x + (mouseX - touchPoint.x)*0.2, touchPoint.y + (mouseY - touchPoint.y)*0.2, 30);
+    fill(0, 20); noStroke(); ellipse(touchPoint.x, touchPoint.y, 80);
+    fill(46, 204, 113, 100); ellipse(touchPoint.x + (mouseX - touchPoint.x)*0.3, touchPoint.y + (mouseY - touchPoint.y)*0.3, 40);
   }
 }
 
@@ -237,37 +227,38 @@ function touchEnded() {
   if (!touchPoint) return;
   let dx = mouseX - touchPoint.x;
   let dy = mouseY - touchPoint.y;
-  if (abs(dx) > abs(dy)) dir = dx > 0 ? 'RIGHT' : 'LEFT';
-  else dir = dy > 0 ? 'DOWN' : 'UP';
+  if (abs(dx) > abs(dy)) {
+    if (dx > 10 && dir !== 'LEFT') nextDir = 'RIGHT';
+    if (dx < -10 && dir !== 'RIGHT') nextDir = 'LEFT';
+  } else {
+    if (dy > 10 && dir !== 'UP') nextDir = 'DOWN';
+    if (dy < -10 && dir !== 'DOWN') nextDir = 'UP';
+  }
   touchPoint = null;
   return false;
 }
 
-function showMsg(t) { msg = t; msgTimer = 60; }
+function showMsg(t) { msg = t; msgTimer = 100; }
 
 function initGame() {
-  snake = [{x: 10, y: 10}, {x: 9, y: 10}];
+  snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
   foods = []; walls = []; score = 0; level = 1;
-  aiActive = false; isRunning = false;
+  aiActive = false; isRunning = false; nextDir = 'RIGHT'; dir = 'RIGHT';
   spawnFood();
 }
 
-function endGame() {
-  alert("Game Over! Score: " + score);
+function endGame(reason) {
+  alert(reason + "\n النتيجة النهائية: " + score);
   initGame();
 }
 
-function drawGrid() {
-  stroke(40);
-  for(let i=0; i<width; i+=gridSize) line(i, gridSize*2, i, height);
-  for(let j=gridSize*2; j<height; j+=gridSize) line(0, j, width, j);
-}
-
 function showStartScreen() {
-  textAlign(CENTER); fill(46, 204, 113); textSize(40);
-  text("SNAKE ELITE", width/2, height/2 - 20);
-  textSize(20); fill(200);
-  text("Touch to Start", width/2, height/2 + 20);
+  textAlign(CENTER, CENTER);
+  fill(46, 204, 113); textSize(width * 0.1); textStyle(BOLD);
+  text("SNAKE ELITE", width / 2, height * 0.3);
+  fill(100); textStyle(NORMAL); textSize(width * 0.04);
+  text("Dev: XxSinzoxX & Ammar", width / 2, height * 0.4);
+  textSize(width * 0.05); text("Touch to Start", width / 2, height * 0.6);
 }
 </script>
 </body>
