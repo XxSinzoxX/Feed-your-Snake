@@ -6,8 +6,20 @@
   <title>Snake Pro Elite - XxSinzoxX</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
   <style>
-    body { margin: 0; padding: 0; overflow: hidden; background-color: #f5f8fa; touch-action: none; }
-    canvas { display: block; margin: auto; }
+    body { 
+      margin: 0; 
+      padding: 0; 
+      overflow: hidden; 
+      background-color: #1a1a1a; /* خلفية داكنة خارج منطقة اللعب */
+      touch-action: none; 
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    canvas { 
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    }
   </style>
 </head>
 <body>
@@ -23,9 +35,16 @@ let touchPoint = null, msg = "", msgTimer = 0;
 let lastGoldPos = null;
 
 function setup() {
-  let w = windowWidth, h = windowHeight;
-  const TARGET_RATIO = 9 / 16;
-  if (w / h > TARGET_RATIO) w = h * TARGET_RATIO; else h = w / TARGET_RATIO;
+  // حساب الأبعاد بناءً على نسبة 9:16
+  let h = windowHeight;
+  let w = h * (9/16);
+  
+  // إذا كان عرض الشاشة أصغر من النتيجة المحسوبة
+  if (w > windowWidth) {
+    w = windowWidth;
+    h = w * (16/9);
+  }
+  
   createCanvas(w, h);
   cols = floor(width / gridSize);
   rows = floor(height / gridSize);
@@ -33,15 +52,16 @@ function setup() {
 }
 
 function draw() {
-  background(245, 248, 250);
+  background(245, 248, 250); // لون خلفية اللعبة الأصلي
+  
   if (!isRunning) { showStartScreen(); return; }
   
   drawElements();
   drawUI();
   drawJoystick();
 
-  // سرعة أبطأ في البداية
-  let speed = 7 + floor(level / 2);
+  // سرعة متزنة (تبدأ بـ 7 وتزيد ببطء)
+  let speed = 7 + floor(level / 2.5);
   frameRate(speed);
 
   updateSnake();
@@ -57,10 +77,10 @@ function updateSnake() {
   else if (dir === 'UP') head.y--;
   else if (dir === 'DOWN') head.y++;
 
+  // عبور الشاشة
   head.x = (head.x + cols) % cols;
-  head.y = head.y < 2 ? rows - 1 : (head.y >= rows ? 2 : head.y);
+  head.y = head.y < 3 ? rows - 1 : (head.y >= rows ? 3 : head.y);
 
-  // تحديد سبب الخسارة
   if (checkCollision(head, snake)) { endGame("لقد أكلت نفسك! 🐍"); return; }
   if (checkWallCollision(head)) { endGame("اصطدمت بالعائق! 🧱"); return; }
 
@@ -78,7 +98,6 @@ function updateSnake() {
 
   if (!ate) {
     let tail = snake.pop();
-    // تحويل مكان التفاحة الذهبية لعائق بعد مرور الذيل
     if (lastGoldPos && tail.x === lastGoldPos.x && tail.y === lastGoldPos.y) {
       walls.push({...lastGoldPos});
       lastGoldPos = null;
@@ -91,17 +110,17 @@ function updateAISnake() {
   let head = { ...aiSnake[0] };
   let target = foods[0];
   if (target) {
-    if (head.x < target.x) aiDir = 'RIGHT';
-    else if (head.x > target.x) aiDir = 'LEFT';
-    else if (head.y < target.y) aiDir = 'DOWN';
-    else if (head.y > target.y) aiDir = 'UP';
+    if (head.x < target.x && aiDir !== 'LEFT') aiDir = 'RIGHT';
+    else if (head.x > target.x && aiDir !== 'RIGHT') aiDir = 'LEFT';
+    else if (head.y < target.y && aiDir !== 'UP') aiDir = 'DOWN';
+    else if (head.y > target.y && aiDir !== 'DOWN') aiDir = 'UP';
   }
   if (aiDir === 'RIGHT') head.x++;
   else if (aiDir === 'LEFT') head.x--;
   else if (aiDir === 'UP') head.y--;
   else if (aiDir === 'DOWN') head.y++;
   head.x = (head.x + cols) % cols;
-  head.y = head.y < 2 ? rows - 1 : (head.y >= rows ? 2 : head.y);
+  head.y = head.y < 3 ? rows - 1 : (head.y >= rows ? 3 : head.y);
   aiSnake.unshift(head);
   let ate = false;
   for (let i = foods.length - 1; i >= 0; i--) {
@@ -131,14 +150,10 @@ function applyEffect(type) {
 }
 
 function drawElements() {
-  // منطقة اللعب
-  fill(255); noStroke(); rect(0, gridSize*2, width, height);
-  
-  // عوائق
+  fill(255); noStroke(); rect(0, gridSize*3, width, height);
   fill(120);
   walls.forEach(w => rect(w.x * gridSize + 1, w.y * gridSize + 1, gridSize - 2, gridSize - 2, 4));
   
-  // طعام
   foods.forEach(f => {
     if (f.type === 'Normal') fill(255, 70, 70);
     else if (f.type === 'Gold') fill(255, 215, 0);
@@ -151,13 +166,11 @@ function drawElements() {
     }
   });
 
-  // لاعب
   snake.forEach((p, i) => {
     fill(i === 0 ? '#2ecc71' : '#27ae60');
     rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, i === 0 ? 8 : 4);
   });
 
-  // ذكاء اصطناعي
   if (aiActive) {
     aiSnake.forEach((p, i) => {
       fill(i === 0 ? '#e74c3c' : '#c0392b');
@@ -169,12 +182,12 @@ function drawElements() {
 function spawnFood() {
   let currentNormal = foods.filter(f => f.type === 'Normal').length;
   while (currentNormal < 2) {
-    let f = { x: floor(random(cols)), y: floor(random(2, rows)), type: 'Normal', timer: 500 };
+    let f = { x: floor(random(cols)), y: floor(random(3, rows)), type: 'Normal', timer: 600 };
     if (!checkWallCollision(f)) { foods.push(f); currentNormal++; }
   }
   if (level >= 5 && foods.length < 4 && random(1) < 0.01) {
     let type = random(['Gold', 'Blue']);
-    let f = { x: floor(random(cols)), y: floor(random(2, rows)), type: type, timer: 300 };
+    let f = { x: floor(random(cols)), y: floor(random(3, rows)), type: type, timer: 400 };
     if (!checkWallCollision(f)) foods.push(f);
   }
 }
@@ -196,15 +209,15 @@ function checkWallCollision(obj) {
 }
 
 function drawUI() {
-  fill(255); rect(0, 0, width, gridSize * 2);
-  fill(50); textSize(width * 0.04); textAlign(LEFT, CENTER);
+  fill(255); rect(0, 0, width, gridSize * 3);
+  fill(50); textSize(width * 0.045); textAlign(LEFT, CENTER);
   text(` ⭐ Score: ${score} | Level: ${level}`, 15, gridSize);
   
-  textSize(width * 0.03); textAlign(RIGHT);
-  text("🔴 +1 | 🟡 +5 (Wall) | 🔵 +2", width - 15, gridSize);
+  textSize(width * 0.035); textAlign(RIGHT);
+  text("🔴+1 | 🟡+5 (Wall) | 🔵+2", width - 15, gridSize * 2);
 
   if (msgTimer > 0) {
-    textAlign(CENTER); textSize(width * 0.06); fill(255, 100, 0);
+    textAlign(CENTER); textSize(width * 0.07); fill(255, 100, 0);
     text(msg, width/2, height/2);
     msgTimer--;
   }
@@ -213,7 +226,10 @@ function drawUI() {
 function drawJoystick() {
   if (touchPoint) {
     fill(0, 20); noStroke(); ellipse(touchPoint.x, touchPoint.y, 80);
-    fill(46, 204, 113, 100); ellipse(touchPoint.x + (mouseX - touchPoint.x)*0.3, touchPoint.y + (mouseY - touchPoint.y)*0.3, 40);
+    fill(46, 204, 113, 120); 
+    let stickX = constrain(mouseX, touchPoint.x - 40, touchPoint.x + 40);
+    let stickY = constrain(mouseY, touchPoint.y - 40, touchPoint.y + 40);
+    ellipse(stickX, stickY, 40);
   }
 }
 
@@ -228,11 +244,11 @@ function touchEnded() {
   let dx = mouseX - touchPoint.x;
   let dy = mouseY - touchPoint.y;
   if (abs(dx) > abs(dy)) {
-    if (dx > 10 && dir !== 'LEFT') nextDir = 'RIGHT';
-    if (dx < -10 && dir !== 'RIGHT') nextDir = 'LEFT';
+    if (dx > 20 && dir !== 'LEFT') nextDir = 'RIGHT';
+    if (dx < -20 && dir !== 'RIGHT') nextDir = 'LEFT';
   } else {
-    if (dy > 10 && dir !== 'UP') nextDir = 'DOWN';
-    if (dy < -10 && dir !== 'DOWN') nextDir = 'UP';
+    if (dy > 20 && dir !== 'UP') nextDir = 'DOWN';
+    if (dy < -20 && dir !== 'DOWN') nextDir = 'UP';
   }
   touchPoint = null;
   return false;
@@ -254,11 +270,17 @@ function endGame(reason) {
 
 function showStartScreen() {
   textAlign(CENTER, CENTER);
-  fill(46, 204, 113); textSize(width * 0.1); textStyle(BOLD);
+  fill(46, 204, 113); textSize(width * 0.12); textStyle(BOLD);
   text("SNAKE ELITE", width / 2, height * 0.3);
-  fill(100); textStyle(NORMAL); textSize(width * 0.04);
-  text("Dev: XxSinzoxX & Ammar", width / 2, height * 0.4);
-  textSize(width * 0.05); text("Touch to Start", width / 2, height * 0.6);
+  fill(100); textStyle(NORMAL); textSize(width * 0.045);
+  text("Dev: XxSinzoxX & Ammar", width / 2, height * 0.38);
+  
+  textSize(width * 0.05); fill(80);
+  text("Level 5: Walls Appear", width/2, height * 0.5);
+  text("Level 10: AI Enemy", width/2, height * 0.55);
+  
+  textSize(width * 0.06); fill(46, 204, 113);
+  text("Touch to Start", width / 2, height * 0.7);
 }
 </script>
 </body>
