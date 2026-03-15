@@ -7,19 +7,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
   <style>
     body { 
-      margin: 0; 
-      padding: 0; 
-      overflow: hidden; 
-      background-color: #1a1a1a; /* خلفية داكنة خارج منطقة اللعب */
-      touch-action: none; 
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+      margin: 0; padding: 0; overflow: hidden; background-color: #1a1a1a; 
+      touch-action: none; display: flex; justify-content: center; align-items: center; height: 100vh;
     }
-    canvas { 
-      box-shadow: 0 0 20px rgba(0,0,0,0.5);
-    }
+    canvas { box-shadow: 0 0 20px rgba(0,0,0,0.5); }
   </style>
 </head>
 <body>
@@ -29,22 +20,15 @@ let foods = [];
 let walls = [];
 let dir = 'RIGHT', nextDir = 'RIGHT', aiDir = 'RIGHT';
 let score = 0, level = 1;
-let isRunning = false, aiActive = false;
+let isRunning = false, aiActive = false, isPaused = false;
 let gridSize = 20, cols, rows;
 let touchPoint = null, msg = "", msgTimer = 0;
 let lastGoldPos = null;
 
 function setup() {
-  // حساب الأبعاد بناءً على نسبة 9:16
   let h = windowHeight;
   let w = h * (9/16);
-  
-  // إذا كان عرض الشاشة أصغر من النتيجة المحسوبة
-  if (w > windowWidth) {
-    w = windowWidth;
-    h = w * (16/9);
-  }
-  
+  if (w > windowWidth) { w = windowWidth; h = w * (16/9); }
   createCanvas(w, h);
   cols = floor(width / gridSize);
   rows = floor(height / gridSize);
@@ -52,7 +36,7 @@ function setup() {
 }
 
 function draw() {
-  background(245, 248, 250); // لون خلفية اللعبة الأصلي
+  background(245, 248, 250);
   
   if (!isRunning) { showStartScreen(); return; }
   
@@ -60,7 +44,13 @@ function draw() {
   drawUI();
   drawJoystick();
 
-  // سرعة متزنة (تبدأ بـ 7 وتزيد ببطء)
+  if (isPaused) {
+    fill(0, 100); rect(0, 0, width, height);
+    fill(255); textAlign(CENTER, CENTER); textSize(width * 0.1);
+    text("PAUSED", width/2, height/2);
+    return; 
+  }
+
   let speed = 7 + floor(level / 2.5);
   frameRate(speed);
 
@@ -77,7 +67,6 @@ function updateSnake() {
   else if (dir === 'UP') head.y--;
   else if (dir === 'DOWN') head.y++;
 
-  // عبور الشاشة
   head.x = (head.x + cols) % cols;
   head.y = head.y < 3 ? rows - 1 : (head.y >= rows ? 3 : head.y);
 
@@ -214,10 +203,18 @@ function drawUI() {
   text(` ⭐ Score: ${score} | Level: ${level}`, 15, gridSize);
   
   textSize(width * 0.035); textAlign(RIGHT);
-  text("🔴+1 | 🟡+5 (Wall) | 🔵+2", width - 15, gridSize * 2);
+  text("🔴+1 | 🟡+5 (Wall) | 🔵+2", width - 50, gridSize * 2);
+
+  // رسم زر الإيقاف
+  push();
+  fill(240); stroke(200); rect(width - 40, 10, 30, 30, 5);
+  fill(80); noStroke();
+  if (!isPaused) { rect(width-33, 17, 5, 15); rect(width-23, 17, 5, 15); }
+  else { triangle(width-33, 17, width-33, 32, width-18, 24.5); }
+  pop();
 
   if (msgTimer > 0) {
-    textAlign(CENTER); textSize(width * 0.07); fill(255, 100, 0);
+    textAlign(CENTER, CENTER); textSize(width * 0.08); fill(255, 100, 0);
     text(msg, width/2, height/2);
     msgTimer--;
   }
@@ -235,7 +232,14 @@ function drawJoystick() {
 
 function touchStarted() {
   if (!isRunning) { isRunning = true; return false; }
-  touchPoint = {x: mouseX, y: mouseY};
+  
+  // فحص لمس زر الإيقاف
+  if (mouseX > width - 50 && mouseY < 50) {
+    isPaused = !isPaused;
+    return false;
+  }
+  
+  if (!isPaused) touchPoint = {x: mouseX, y: mouseY};
   return false;
 }
 
@@ -243,12 +247,14 @@ function touchEnded() {
   if (!touchPoint) return;
   let dx = mouseX - touchPoint.x;
   let dy = mouseY - touchPoint.y;
-  if (abs(dx) > abs(dy)) {
-    if (dx > 20 && dir !== 'LEFT') nextDir = 'RIGHT';
-    if (dx < -20 && dir !== 'RIGHT') nextDir = 'LEFT';
-  } else {
-    if (dy > 20 && dir !== 'UP') nextDir = 'DOWN';
-    if (dy < -20 && dir !== 'DOWN') nextDir = 'UP';
+  if (abs(dx) > 20 || abs(dy) > 20) {
+    if (abs(dx) > abs(dy)) {
+      if (dx > 0 && dir !== 'LEFT') nextDir = 'RIGHT';
+      if (dx < 0 && dir !== 'RIGHT') nextDir = 'LEFT';
+    } else {
+      if (dy > 0 && dir !== 'UP') nextDir = 'DOWN';
+      if (dy < -0 && dir !== 'DOWN') nextDir = 'UP';
+    }
   }
   touchPoint = null;
   return false;
@@ -259,7 +265,7 @@ function showMsg(t) { msg = t; msgTimer = 25; }
 function initGame() {
   snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
   foods = []; walls = []; score = 0; level = 1;
-  aiActive = false; isRunning = false; nextDir = 'RIGHT'; dir = 'RIGHT';
+  aiActive = false; isRunning = false; isPaused = false; nextDir = 'RIGHT'; dir = 'RIGHT';
   spawnFood();
 }
 
@@ -271,14 +277,9 @@ function endGame(reason) {
 function showStartScreen() {
   textAlign(CENTER, CENTER);
   fill(46, 204, 113); textSize(width * 0.12); textStyle(BOLD);
-  text("SNAKE ELITE", width / 2, height * 0.3);
+  text("Feed-Your-SNAKE", width / 2, height * 0.3);
   fill(100); textStyle(NORMAL); textSize(width * 0.045);
   text("Dev: XxSinzoxX & Ammar", width / 2, height * 0.38);
-  
-  textSize(width * 0.05); fill(80);
-  text("Level 5: Walls Appear", width/2, height * 0.5);
-  text("Level 10: AI Enemy", width/2, height * 0.55);
-  
   textSize(width * 0.06); fill(46, 204, 113);
   text("Touch to Start", width / 2, height * 0.7);
 }
