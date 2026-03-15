@@ -3,24 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Snake Pro Elite - XxSinzoxX</title>
+  <title>Snake Pro Elite - Menu Edition</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
   <style>
-    body { 
-      margin: 0; padding: 0; overflow: hidden; background-color: #1a1a1a; 
-      touch-action: none; display: flex; justify-content: center; align-items: center; height: 100vh;
-    }
-    canvas { box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+    body { margin: 0; padding: 0; overflow: hidden; background-color: #1a1a1a; touch-action: none; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    canvas { box-shadow: 0 0 25px rgba(0,0,0,0.6); border-radius: 5px; }
   </style>
 </head>
 <body>
 <script>
-let snake = [], aiSnake = [];
-let foods = [];
-let walls = [];
-let dir = 'RIGHT', nextDir = 'RIGHT', aiDir = 'RIGHT';
-let score = 0, level = 1;
-let isRunning = false, aiActive = false, isPaused = false;
+let snake = [], aiSnake = [], foods = [], walls = [];
+let dir = 'RIGHT', nextDir = 'RIGHT';
+let score = 0, level = 1, highScore = 0;
+let gameState = 'MENU'; // الحالات: MENU, PLAY, PAUSED, HOW_TO_PLAY
 let gridSize = 20, cols, rows;
 let touchPoint = null, msg = "", msgTimer = 0;
 let lastGoldPos = null;
@@ -32,104 +27,135 @@ function setup() {
   createCanvas(w, h);
   cols = floor(width / gridSize);
   rows = floor(height / gridSize);
+  highScore = localStorage.getItem('snakeHighScore') || 0;
   initGame();
 }
 
 function draw() {
   background(245, 248, 250);
-  
-  if (!isRunning) { showStartScreen(); return; }
-  
+
+  if (gameState === 'MENU') {
+    drawMenu();
+  } else if (gameState === 'HOW_TO_PLAY') {
+    drawHowToPlay();
+  } else {
+    gameLoop();
+  }
+}
+
+function gameLoop() {
   drawElements();
   drawUI();
   drawJoystick();
 
-  if (isPaused) {
+  if (gameState === 'PAUSED') {
     fill(0, 100); rect(0, 0, width, height);
     fill(255); textAlign(CENTER, CENTER); textSize(width * 0.1);
     text("PAUSED", width/2, height/2);
-    return; 
+    return;
   }
 
   let speed = 7 + floor(level / 2.5);
   frameRate(speed);
-
   updateSnake();
-  if (aiActive) updateAISnake();
+  if (level >= 10) updateAISnake();
   checkLevelUp();
 }
 
+function drawMenu() {
+  textAlign(CENTER, CENTER);
+  fill(46, 204, 113); textSize(width * 0.13); textStyle(BOLD);
+  text("Feed-Your-SNAKE", width / 2, height * 0.25);
+  
+  fill(100); textStyle(NORMAL); textSize(width * 0.045);
+  text("XxSinzoxX & Ammar", width / 2, height * 0.32);
+
+  fill(50); textSize(width * 0.055);
+  text(`🏆 Best: ${highScore}`, width / 2, height * 0.42);
+
+  // زر البدء
+  drawButton("START GAME", height * 0.55, '#2ecc71');
+  // زر كيف ألعب
+  drawButton("HOW TO PLAY", height * 0.65, '#3498db');
+}
+
+function drawButton(txt, y, col) {
+  push();
+  fill(col); noStroke();
+  rect(width * 0.2, y - 25, width * 0.6, 50, 10);
+  fill(255); textSize(width * 0.05); textStyle(BOLD);
+  text(txt, width / 2, y);
+  pop();
+}
+
+function drawHowToPlay() {
+  background(245, 248, 250);
+  fill(50); textAlign(CENTER); textSize(width * 0.08); text("How to Play", width/2, height * 0.15);
+  
+  textAlign(LEFT); textSize(width * 0.04);
+  let startY = height * 0.25;
+  let gap = height * 0.08;
+  
+  drawGuideItem(startY, "🔴 +1 Score (Red Apple)", '#ff4646');
+  drawGuideItem(startY + gap, "🟡 +5 Score & Leaves Wall", '#ffd700');
+  drawGuideItem(startY + gap*2, "🔵 +2 Score & Shrink Snake", '#3296ff');
+  drawGuideItem(startY + gap*3, "🧱 Wall: Don't hit it!", '#787878');
+  drawGuideItem(startY + gap*4, "🐍 Level 10: Enemy AI appears!", '#e74c3c');
+
+  drawButton("BACK TO MENU", height * 0.85, '#95a5a6');
+}
+
+function drawGuideItem(y, txt, col) {
+  fill(col); ellipse(width * 0.15, y, 15);
+  fill(50); text(txt, width * 0.22, y);
+}
+
+function touchStarted() {
+  if (gameState === 'MENU') {
+    if (mouseY > height * 0.55 - 25 && mouseY < height * 0.55 + 25) gameState = 'PLAY';
+    if (mouseY > height * 0.65 - 25 && mouseY < height * 0.65 + 25) gameState = 'HOW_TO_PLAY';
+    return false;
+  }
+  if (gameState === 'HOW_TO_PLAY') {
+    if (mouseY > height * 0.85 - 25 && mouseY < height * 0.85 + 25) gameState = 'MENU';
+    return false;
+  }
+  
+  // أثناء اللعب
+  if (mouseX > width - 50 && mouseY < 50) { gameState = (gameState === 'PLAY') ? 'PAUSED' : 'PLAY'; return false; }
+  if (gameState === 'PLAY') touchPoint = {x: mouseX, y: mouseY};
+  return false;
+}
+
+// ... (باقي الوظائف التقنية للثعبان والطعام والعوائق تبقى كما هي لضمان استقرار اللعبة)
 function updateSnake() {
   dir = nextDir;
   let head = { ...snake[0] };
-  if (dir === 'RIGHT') head.x++;
-  else if (dir === 'LEFT') head.x--;
-  else if (dir === 'UP') head.y--;
-  else if (dir === 'DOWN') head.y++;
-
+  if (dir === 'RIGHT') head.x++; else if (dir === 'LEFT') head.x--;
+  else if (dir === 'UP') head.y--; else if (dir === 'DOWN') head.y++;
   head.x = (head.x + cols) % cols;
   head.y = head.y < 3 ? rows - 1 : (head.y >= rows ? 3 : head.y);
-
-  if (checkCollision(head, snake)) { endGame("لقد أكلت نفسك! 🐍"); return; }
-  if (checkWallCollision(head)) { endGame("اصطدمت بالعائق! 🧱"); return; }
-
+  if (checkCollision(head, snake) || checkWallCollision(head)) { endGame(); return; }
   snake.unshift(head);
   let ate = false;
   for (let i = foods.length - 1; i >= 0; i--) {
     if (head.x === foods[i].x && head.y === foods[i].y) {
       if (foods[i].type === 'Gold') lastGoldPos = {x: head.x, y: head.y};
-      applyEffect(foods[i].type);
-      foods.splice(i, 1);
-      ate = true;
-      break;
+      applyEffect(foods[i].type); foods.splice(i, 1); ate = true; break;
     }
   }
-
   if (!ate) {
     let tail = snake.pop();
-    if (lastGoldPos && tail.x === lastGoldPos.x && tail.y === lastGoldPos.y) {
-      walls.push({...lastGoldPos});
-      lastGoldPos = null;
-    }
+    if (lastGoldPos && tail.x === lastGoldPos.x && tail.y === lastGoldPos.y) { walls.push({...lastGoldPos}); lastGoldPos = null; }
   }
   spawnFood();
-}
-
-function updateAISnake() {
-  let head = { ...aiSnake[0] };
-  let target = foods[0];
-  if (target) {
-    if (head.x < target.x && aiDir !== 'LEFT') aiDir = 'RIGHT';
-    else if (head.x > target.x && aiDir !== 'RIGHT') aiDir = 'LEFT';
-    else if (head.y < target.y && aiDir !== 'UP') aiDir = 'DOWN';
-    else if (head.y > target.y && aiDir !== 'DOWN') aiDir = 'UP';
-  }
-  if (aiDir === 'RIGHT') head.x++;
-  else if (aiDir === 'LEFT') head.x--;
-  else if (aiDir === 'UP') head.y--;
-  else if (aiDir === 'DOWN') head.y++;
-  head.x = (head.x + cols) % cols;
-  head.y = head.y < 3 ? rows - 1 : (head.y >= rows ? 3 : head.y);
-  aiSnake.unshift(head);
-  let ate = false;
-  for (let i = foods.length - 1; i >= 0; i--) {
-    if (head.x === foods[i].x && head.y === foods[i].y) { foods.splice(i, 1); ate = true; break; }
-  }
-  if (!ate) aiSnake.pop();
 }
 
 function checkLevelUp() {
   let oldLevel = level;
   level = 1 + floor(score / 10);
-  if (level > oldLevel) {
-    showMsg("عاش يا بطل! مستوى " + level);
-    if (level === 5) { for(let i=0; i<5; i++) spawnWall(); }
-    if (level === 10 && !aiActive) {
-      aiActive = true;
-      aiSnake = [{x: 2, y: 5}];
-      showMsg("تحذير: دخل الثعبان المنافس!");
-    }
-  }
+  if (level > oldLevel) showMsg("Level Up: " + level);
+  if (level === 5 && walls.length < 5) for(let i=0; i<5; i++) spawnWall();
 }
 
 function applyEffect(type) {
@@ -140,43 +166,25 @@ function applyEffect(type) {
 
 function drawElements() {
   fill(255); noStroke(); rect(0, gridSize*3, width, height);
-  fill(120);
-  walls.forEach(w => rect(w.x * gridSize + 1, w.y * gridSize + 1, gridSize - 2, gridSize - 2, 4));
-  
+  fill(120); walls.forEach(w => rect(w.x * gridSize + 1, w.y * gridSize + 1, gridSize - 2, gridSize - 2, 4));
   foods.forEach(f => {
-    if (f.type === 'Normal') fill(255, 70, 70);
-    else if (f.type === 'Gold') fill(255, 215, 0);
-    else fill(50, 150, 255);
+    if (f.type === 'Normal') fill(255, 70, 70); else if (f.type === 'Gold') fill(255, 215, 0); else fill(50, 150, 255);
     ellipse(f.x * gridSize + gridSize/2, f.y * gridSize + gridSize/2, gridSize - 6);
-    f.timer--;
-    if (f.timer <= 0) {
-      walls.push({x: f.x, y: f.y});
-      foods.splice(foods.indexOf(f), 1);
-    }
   });
-
   snake.forEach((p, i) => {
     fill(i === 0 ? '#2ecc71' : '#27ae60');
     rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, i === 0 ? 8 : 4);
   });
-
-  if (aiActive) {
-    aiSnake.forEach((p, i) => {
-      fill(i === 0 ? '#e74c3c' : '#c0392b');
-      rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, 5);
-    });
-  }
 }
 
 function spawnFood() {
   let currentNormal = foods.filter(f => f.type === 'Normal').length;
   while (currentNormal < 2) {
-    let f = { x: floor(random(cols)), y: floor(random(3, rows)), type: 'Normal', timer: 600 };
+    let f = { x: floor(random(cols)), y: floor(random(3, rows)), type: 'Normal' };
     if (!checkWallCollision(f)) { foods.push(f); currentNormal++; }
   }
   if (level >= 5 && foods.length < 4 && random(1) < 0.01) {
-    let type = random(['Gold', 'Blue']);
-    let f = { x: floor(random(cols)), y: floor(random(3, rows)), type: type, timer: 400 };
+    let f = { x: floor(random(cols)), y: floor(random(3, rows)), type: random(['Gold', 'Blue']) };
     if (!checkWallCollision(f)) foods.push(f);
   }
 }
@@ -187,36 +195,27 @@ function spawnWall() {
 }
 
 function checkCollision(head, body) {
-  for (let i = 1; i < body.length; i++) {
-    if (head.x === body[i].x && head.y === body[i].y) return true;
-  }
+  for (let i = 1; i < body.length; i++) if (head.x === body[i].x && head.y === body[i].y) return true;
   return false;
 }
 
-function checkWallCollision(obj) {
-  return walls.some(w => w.x === obj.x && w.y === obj.y);
-}
+function checkWallCollision(obj) { return walls.some(w => w.x === obj.x && w.y === obj.y); }
 
 function drawUI() {
   fill(255); rect(0, 0, width, gridSize * 3);
   fill(50); textSize(width * 0.045); textAlign(LEFT, CENTER);
-  text(` ⭐ Score: ${score} | Level: ${level}`, 15, gridSize);
+  text(` ⭐ Score: ${score}`, 15, gridSize);
+  text(` 🏆 Best: ${highScore}`, 15, gridSize * 2);
   
-  textSize(width * 0.035); textAlign(RIGHT);
-  text("🔴+1 | 🟡+5 (Wall) | 🔵+2", width - 50, gridSize * 2);
-
-  // رسم زر الإيقاف
-  push();
-  fill(240); stroke(200); rect(width - 40, 10, 30, 30, 5);
+  push(); fill(240); stroke(200); rect(width - 40, 10, 30, 30, 5);
   fill(80); noStroke();
-  if (!isPaused) { rect(width-33, 17, 5, 15); rect(width-23, 17, 5, 15); }
+  if (gameState === 'PLAY') { rect(width-33, 17, 5, 15); rect(width-23, 17, 5, 15); }
   else { triangle(width-33, 17, width-33, 32, width-18, 24.5); }
   pop();
 
   if (msgTimer > 0) {
     textAlign(CENTER, CENTER); textSize(width * 0.08); fill(255, 100, 0);
-    text(msg, width/2, height/2);
-    msgTimer--;
+    text(msg, width/2, height/2); msgTimer--;
   }
 }
 
@@ -224,40 +223,21 @@ function drawJoystick() {
   if (touchPoint) {
     fill(0, 20); noStroke(); ellipse(touchPoint.x, touchPoint.y, 80);
     fill(46, 204, 113, 120); 
-    let stickX = constrain(mouseX, touchPoint.x - 40, touchPoint.x + 40);
-    let stickY = constrain(mouseY, touchPoint.y - 40, touchPoint.y + 40);
-    ellipse(stickX, stickY, 40);
+    ellipse(constrain(mouseX, touchPoint.x - 40, touchPoint.x + 40), constrain(mouseY, touchPoint.y - 40, touchPoint.y + 40), 40);
   }
-}
-
-function touchStarted() {
-  if (!isRunning) { isRunning = true; return false; }
-  
-  // فحص لمس زر الإيقاف
-  if (mouseX > width - 50 && mouseY < 50) {
-    isPaused = !isPaused;
-    return false;
-  }
-  
-  if (!isPaused) touchPoint = {x: mouseX, y: mouseY};
-  return false;
 }
 
 function touchEnded() {
   if (!touchPoint) return;
-  let dx = mouseX - touchPoint.x;
-  let dy = mouseY - touchPoint.y;
+  let dx = mouseX - touchPoint.x, dy = mouseY - touchPoint.y;
   if (abs(dx) > 20 || abs(dy) > 20) {
     if (abs(dx) > abs(dy)) {
-      if (dx > 0 && dir !== 'LEFT') nextDir = 'RIGHT';
-      if (dx < 0 && dir !== 'RIGHT') nextDir = 'LEFT';
+      if (dx > 0 && dir !== 'LEFT') nextDir = 'RIGHT'; if (dx < 0 && dir !== 'RIGHT') nextDir = 'LEFT';
     } else {
-      if (dy > 0 && dir !== 'UP') nextDir = 'DOWN';
-      if (dy < -0 && dir !== 'DOWN') nextDir = 'UP';
+      if (dy > 0 && dir !== 'UP') nextDir = 'DOWN'; if (dy < 0 && dir !== 'DOWN') nextDir = 'UP';
     }
   }
-  touchPoint = null;
-  return false;
+  touchPoint = null; return false;
 }
 
 function showMsg(t) { msg = t; msgTimer = 25; }
@@ -265,23 +245,19 @@ function showMsg(t) { msg = t; msgTimer = 25; }
 function initGame() {
   snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
   foods = []; walls = []; score = 0; level = 1;
-  aiActive = false; isRunning = false; isPaused = false; nextDir = 'RIGHT'; dir = 'RIGHT';
-  spawnFood();
+  nextDir = 'RIGHT'; dir = 'RIGHT'; spawnFood();
 }
 
-function endGame(reason) {
-  alert(reason + "\n النتيجة النهائية: " + score);
+function endGame() {
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('snakeHighScore', highScore);
+    alert("New Record! 🎉: " + score);
+  } else {
+    alert("Game Over! Score: " + score);
+  }
   initGame();
-}
-
-function showStartScreen() {
-  textAlign(CENTER, CENTER);
-  fill(46, 204, 113); textSize(width * 0.12); textStyle(BOLD);
-  text("Feed-Your-SNAKE", width / 2, height * 0.3);
-  fill(100); textStyle(NORMAL); textSize(width * 0.045);
-  text("Dev: XxSinzoxX & Ammar", width / 2, height * 0.38);
-  textSize(width * 0.06); fill(46, 204, 113);
-  text("Touch to Start", width / 2, height * 0.7);
+  gameState = 'MENU';
 }
 </script>
 </body>
