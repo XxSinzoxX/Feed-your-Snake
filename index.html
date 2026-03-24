@@ -53,7 +53,7 @@ function gameLoop() {
   let speed = 7 + floor(level / 2.5);
   frameRate(speed);
   updateSnake();
-  if (level >= 10) updateAISnake();
+  if (level >= 5) updateAISnake();
   checkLevelUp();
 }
 
@@ -128,7 +128,7 @@ function drawHowToPlay() {
   drawGuideItem(startY + gap, "🟡 +5 & Leaves Wall", '#ffd700');
   drawGuideItem(startY + gap*2, "🔵 +2 & Shrinks Snake", '#3296ff');
   drawGuideItem(startY + gap*3, "🧱 Wall: Don't hit it!", '#787878');
-  drawGuideItem(startY + gap*4, "🐍 Lv 10: Enemy AI!", '#e74c3c');
+  drawGuideItem(startY + gap*4, "🐍 Lv 5: Enemy AI!", '#e74c3c');
   drawButton("BACK", height * 0.85, '#95a5a6');
 }
 
@@ -247,7 +247,7 @@ function drawElements() {
     fill(i === 0 ? '#2ecc71' : '#27ae60');
     rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, i === 0 ? 8 : 4);
   });
-  if (level >= 10) {
+  if (level >= 5) {
     aiSnake.forEach((p, i) => {
       fill(i === 0 ? '#e74c3c' : '#c0392b');
       rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, 5);
@@ -257,7 +257,7 @@ function drawElements() {
 
 function checkLevelUp() {
   let oldL = level; level = 1 + floor(score / 10);
-  if (level > oldL) { showMsg("LV " + level); if (level === 5) for(let i=0; i<5; i++) spawnWall(); }
+  if (level > oldL) { showMsg("LV " + level); if (level === 3) for(let i=0; i<10; i++) spawnWall(); }
 }
 function showMsg(t) { msg = t; msgTimer = 60; }
 function spawnFood() {
