@@ -53,7 +53,7 @@ function gameLoop() {
   let speed = 7 + floor(level / 2.5);
   frameRate(speed);
   updateSnake();
-  if (level >= 5) updateAISnake();
+  if (level >= 3) updateAISnake();
   checkLevelUp();
 }
 
@@ -257,7 +257,7 @@ function drawElements() {
 
 function checkLevelUp() {
   let oldL = level; level = 1 + floor(score / 10);
-  if (level > oldL) { showMsg("LV " + level); if (level === 3) for(let i=0; i<10; i++) spawnWall(); }
+  if (level > oldL) { showMsg("LV " + level); if (level === 2) for(let i=0; i<5; i++) spawnWall(); }
 }
 function showMsg(t) { msg = t; msgTimer = 60; }
 function spawnFood() {
