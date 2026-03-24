@@ -7,7 +7,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
   <style>
     body { margin: 0; padding: 0; overflow: hidden; background-color: #111; display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none; font-family: sans-serif; }
-    canvas { display: block; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
+    canvas { display: block; box-shadow: 0 0 30px rgba(0,0,0,0.7); border: 2px solid #333; }
   </style>
 </head>
 <body>
@@ -45,8 +45,9 @@ function gameLoop() {
   drawUI();
   drawJoystick();
   if (gameState === 'PAUSED') {
-    fill(0, 100); rect(0, 0, width, height);
-    fill(255); textAlign(CENTER, CENTER); textSize(width * 0.1); text("PAUSED", width/2, height/2);
+    fill(0, 150); rect(0, 0, width, height);
+    fill(255); textAlign(CENTER, CENTER); textSize(width * 0.12); textStyle(BOLD);
+    text("PAUSED", width/2, height/2);
     return;
   }
   let speed = 7 + floor(level / 2.5);
@@ -72,17 +73,13 @@ function drawMenu() {
 function drawHowToPlay() {
   background(250); fill(50); textAlign(CENTER); textSize(width * 0.1); textStyle(BOLD);
   text("Guide", width/2, height * 0.12);
-  
   textAlign(LEFT); textStyle(NORMAL); textSize(width * 0.042);
   let startY = height * 0.22, gap = height * 0.085;
-  
   drawGuideItem(startY, "🔴 +1 Score", '#ff4646');
   drawGuideItem(startY + gap, "🟡 +5 & Leaves Wall", '#ffd700');
   drawGuideItem(startY + gap*2, "🔵 +2 & Shrinks Snake", '#3296ff');
   drawGuideItem(startY + gap*3, "🧱 Wall: Don't hit it!", '#787878');
-  drawGuideItem(startY + gap*4, "🐍 Lv 10: Enemy AI appears!", '#e74c3c');
-
-  // زر Back في المنتصف تماماً
+  drawGuideItem(startY + gap*4, "🐍 Lv 10: Enemy AI!", '#e74c3c');
   drawButton("BACK", height * 0.85, '#95a5a6');
 }
 
@@ -107,9 +104,40 @@ function drawButton(txt, y, col) {
 
 function drawGuideItem(y, txt, col) {
   fill(col); 
-  if (col === '#e74c3c') rect(width * 0.18, y - 10, 20, 20, 4); // شكل الثعبان العدو
+  if (col === '#e74c3c') rect(width * 0.18, y - 10, 20, 20, 4);
   else ellipse(width * 0.2, y, 20);
   fill(50); text(txt, width * 0.3, y);
+}
+
+function drawUI() {
+  fill(255); noStroke(); rect(0, 0, width, gridSize * 3);
+  fill(50); textSize(width * 0.05); textAlign(LEFT, CENTER);
+  text(` ⭐ ${score}`, 20, gridSize * 1.5);
+  textAlign(CENTER); text(`🏆 ${highScore}`, width/2, gridSize * 1.5);
+  
+  // --- تطوير زر الإيقاف (Pause Button) ---
+  push();
+  let btnX = width - 55, btnY = 15, btnS = 40;
+  // خلفية الزر
+  if (gameState === 'PAUSED') fill(255, 165, 0); // برتقالي عند الإيقاف ليكون واضحاً جداً
+  else fill(240); 
+  stroke(100); strokeWeight(2);
+  rect(btnX, btnY, btnS, btnS, 10);
+  
+  // أيقونة الزر
+  noStroke(); fill(gameState === 'PAUSED' ? 255 : 50);
+  if (gameState === 'PLAY') {
+    rect(btnX + 11, btnY + 10, 6, 20, 2);
+    rect(btnX + 23, btnY + 10, 6, 20, 2);
+  } else {
+    triangle(btnX + 13, btnY + 10, btnX + 13, btnY + 30, btnX + 31, btnY + 20);
+  }
+  pop();
+
+  if (msgTimer > 0) {
+    textAlign(CENTER, CENTER); textSize(width * 0.1); fill(255, 100, 0);
+    text(msg, width/2, height/2); msgTimer--;
+  }
 }
 
 function touchStarted() {
@@ -122,7 +150,11 @@ function touchStarted() {
     if (mouseY > height * 0.65 - 30 && mouseY < height * 0.65 + 30) { initGame(); gameState = 'PLAY'; }
     if (mouseY > height * 0.77 - 30 && mouseY < height * 0.77 + 30) gameState = 'MENU';
   } else {
-    if (mouseX > width - 60 && mouseY < 60) { gameState = (gameState === 'PLAY') ? 'PAUSED' : 'PLAY'; return false; }
+    // منطقة الضغط على زر الإيقاف
+    if (mouseX > width - 65 && mouseY < 65) { 
+      gameState = (gameState === 'PLAY') ? 'PAUSED' : 'PLAY'; 
+      return false; 
+    }
     if (gameState === 'PLAY') touchPoint = {x: mouseX, y: mouseY};
   }
   return false;
@@ -173,24 +205,6 @@ function updateAISnake() {
     if (head.x === foods[i].x && head.y === foods[i].y) { foods.splice(i, 1); ate = true; break; }
   }
   if (!ate) aiSnake.pop();
-}
-
-function drawUI() {
-  fill(255); noStroke(); rect(0, 0, width, gridSize * 3);
-  fill(50); textSize(width * 0.05); textAlign(LEFT, CENTER);
-  text(` ⭐ ${score}`, 20, gridSize * 1.5);
-  textAlign(CENTER); text(`🏆 ${highScore}`, width/2, gridSize * 1.5);
-  push();
-  if (gameState === 'PAUSED') fill(46, 204, 113); else fill(240);
-  stroke(200); rect(width - 45, 10, 35, 35, 8);
-  fill(gameState === 'PAUSED' ? 255 : 80); noStroke();
-  if (gameState === 'PLAY') { rect(width-37, 18, 6, 18); rect(width-26, 18, 6, 18); }
-  else { triangle(width-35, 18, width-35, 36, width-20, 27); }
-  pop();
-  if (msgTimer > 0) {
-    textAlign(CENTER, CENTER); textSize(width * 0.1); fill(255, 100, 0);
-    text(msg, width/2, height/2); msgTimer--;
-  }
 }
 
 function triggerGameOver(reason) {
