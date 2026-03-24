@@ -3,130 +3,99 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Snake Pro Elite - XxSinzoxX</title>
+  <title>SNAKE X-PRO - XxSinzoxX</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
   <style>
-    body { 
-      margin: 0; padding: 0; overflow: hidden; background-color: #111; 
-      display: flex; justify-content: center; align-items: center; height: 100vh;
-      touch-action: none;
-    }
-    canvas { 
-      display: block;
-      box-shadow: 0 0 30px rgba(0,0,0,0.7);
-    }
+    body { margin: 0; padding: 0; overflow: hidden; background-color: #111; display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none; font-family: sans-serif; }
+    canvas { display: block; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
   </style>
 </head>
 <body>
 <script>
-let snake = [], aiSnake = [], foods = [], walls = [];
+let snake = [], foods = [], walls = [];
 let dir = 'RIGHT', nextDir = 'RIGHT';
 let score = 0, level = 1, highScore = 0;
-let gameState = 'MENU'; 
+let gameState = 'MENU'; // MENU, PLAY, PAUSED, HOW_TO_PLAY, GAMEOVER
+let gameOverReason = "";
 let gridSize = 20, cols, rows;
 let touchPoint = null, msg = "", msgTimer = 0;
 let lastGoldPos = null;
 
 function setup() {
-  // ضبط الأبعاد بنسبة 9:16 بدقة
   let canvasH = windowHeight;
   let canvasW = canvasH * (9/16);
-  
-  if (canvasW > windowWidth) {
-    canvasW = windowWidth;
-    canvasH = canvasW * (16/9);
-  }
-  
+  if (canvasW > windowWidth) { canvasW = windowWidth; canvasH = canvasW * (16/9); }
   createCanvas(canvasW, canvasH);
-  
-  // إعادة حساب الخلايا بناءً على الحجم الفعلي
   cols = floor(width / gridSize);
   rows = floor(height / gridSize);
-  
   highScore = localStorage.getItem('snakeHighScore') || 0;
   initGame();
 }
 
 function draw() {
   background(245, 248, 250);
-
-  if (gameState === 'MENU') {
-    drawMenu();
-  } else if (gameState === 'HOW_TO_PLAY') {
-    drawHowToPlay();
-  } else {
-    gameLoop();
-  }
+  if (gameState === 'MENU') drawMenu();
+  else if (gameState === 'HOW_TO_PLAY') drawHowToPlay();
+  else if (gameState === 'GAMEOVER') drawGameOver();
+  else gameLoop();
 }
 
 function gameLoop() {
   drawElements();
   drawUI();
   drawJoystick();
-
   if (gameState === 'PAUSED') {
-    fill(0, 150); rect(0, 0, width, height);
-    fill(255); textAlign(CENTER, CENTER); textSize(width * 0.1);
-    text("PAUSED", width/2, height/2);
+    fill(0, 100); rect(0, 0, width, height);
+    fill(255); textAlign(CENTER, CENTER); textSize(width * 0.1); text("PAUSED", width/2, height/2);
     return;
   }
-
-  // التحكم في سرعة اللعبة
   let speed = 7 + floor(level / 2.5);
   frameRate(speed);
-  
   updateSnake();
-  if (level >= 10) updateAISnake();
   checkLevelUp();
 }
 
 function drawMenu() {
-  background(255);
-  textAlign(CENTER, CENTER);
-  
-  // العنوان
-  fill(46, 204, 113); textSize(width * 0.14); textStyle(BOLD);
+  background(255); textAlign(CENTER, CENTER);
+  fill(46, 204, 113); textSize(width * 0.15); textStyle(BOLD);
   text("SNAKE", width / 2, height * 0.2);
-  text("ELITE", width / 2, height * 0.28);
-  
-  // المطورين
-  fill(120); textStyle(NORMAL); textSize(width * 0.04);
-  text("XxSinzoxX & Ammar", width / 2, height * 0.35);
-
-  // أفضل نتيجة
+  text("X-PRO", width / 2, height * 0.28);
+  fill(150); textStyle(NORMAL); textSize(width * 0.04);
+  text("Developer: XxSinzoxX", width / 2, height * 0.35);
   fill(50); textSize(width * 0.06);
   text(`🏆 Best Score: ${highScore}`, width / 2, height * 0.45);
-
-  // الأزرار
   drawButton("START GAME", height * 0.6, '#2ecc71');
   drawButton("HOW TO PLAY", height * 0.72, '#3498db');
 }
 
-function drawButton(txt, y, col) {
-  push();
-  fill(col); noStroke();
-  rect(width * 0.15, y - 30, width * 0.7, 60, 15);
-  fill(255); textSize(width * 0.055); textStyle(BOLD);
-  text(txt, width / 2, y);
-  pop();
-}
-
 function drawHowToPlay() {
-  background(250);
-  fill(50); textAlign(CENTER); textSize(width * 0.09);
-  text("Guide", width/2, height * 0.12);
-  
+  background(250); fill(50); textAlign(CENTER); textSize(width * 0.1); text("Guide", width/2, height * 0.15);
   textAlign(LEFT); textSize(width * 0.045);
-  let startY = height * 0.22;
-  let gap = height * 0.09;
-  
+  let startY = height * 0.25, gap = height * 0.08;
   drawGuideItem(startY, "🔴 +1 Score", '#ff4646');
   drawGuideItem(startY + gap, "🟡 +5 & Leaves Wall", '#ffd700');
   drawGuideItem(startY + gap*2, "🔵 +2 & Shrinks", '#3296ff');
   drawGuideItem(startY + gap*3, "🧱 Don't hit walls!", '#787878');
-  drawGuideItem(startY + gap*4, "🐍 Lv 10: Enemy AI!", '#e74c3c');
-
   drawButton("BACK", height * 0.85, '#95a5a6');
+}
+
+function drawGameOver() {
+  fill(0, 180); rect(0, 0, width, height);
+  textAlign(CENTER, CENTER); fill(255, 50, 50); textSize(width * 0.12); textStyle(BOLD);
+  text("GAME OVER", width/2, height * 0.25);
+  fill(255); textSize(width * 0.05); textStyle(NORMAL);
+  text(gameOverReason, width/2, height * 0.35);
+  fill(46, 204, 113); textSize(width * 0.08);
+  text(`Score: ${score}`, width/2, height * 0.45);
+  drawButton("RETRY", height * 0.65, '#2ecc71');
+  drawButton("MAIN MENU", height * 0.77, '#95a5a6');
+}
+
+function drawButton(txt, y, col) {
+  push(); fill(col); noStroke();
+  rect(width * 0.15, y - 30, width * 0.7, 60, 15);
+  fill(255); textSize(width * 0.055); textStyle(BOLD); textAlign(CENTER, CENTER);
+  text(txt, width / 2, y); pop();
 }
 
 function drawGuideItem(y, txt, col) {
@@ -138,20 +107,15 @@ function touchStarted() {
   if (gameState === 'MENU') {
     if (mouseY > height * 0.6 - 30 && mouseY < height * 0.6 + 30) { initGame(); gameState = 'PLAY'; }
     if (mouseY > height * 0.72 - 30 && mouseY < height * 0.72 + 30) gameState = 'HOW_TO_PLAY';
-    return false;
-  }
-  if (gameState === 'HOW_TO_PLAY') {
+  } else if (gameState === 'HOW_TO_PLAY') {
     if (mouseY > height * 0.85 - 30 && mouseY < height * 0.85 + 30) gameState = 'MENU';
-    return false;
+  } else if (gameState === 'GAMEOVER') {
+    if (mouseY > height * 0.65 - 30 && mouseY < height * 0.65 + 30) { initGame(); gameState = 'PLAY'; }
+    if (mouseY > height * 0.77 - 30 && mouseY < height * 0.77 + 30) gameState = 'MENU';
+  } else {
+    if (mouseX > width - 60 && mouseY < 60) { gameState = (gameState === 'PLAY') ? 'PAUSED' : 'PLAY'; return false; }
+    if (gameState === 'PLAY') touchPoint = {x: mouseX, y: mouseY};
   }
-  
-  // زر الإيقاف
-  if (mouseX > width - 60 && mouseY < 60) {
-    gameState = (gameState === 'PLAY') ? 'PAUSED' : 'PLAY';
-    return false;
-  }
-  
-  if (gameState === 'PLAY') touchPoint = {x: mouseX, y: mouseY};
   return false;
 }
 
@@ -160,25 +124,22 @@ function updateSnake() {
   let head = { ...snake[0] };
   if (dir === 'RIGHT') head.x++; else if (dir === 'LEFT') head.x--;
   else if (dir === 'UP') head.y--; else if (dir === 'DOWN') head.y++;
-  
   head.x = (head.x + cols) % cols;
   head.y = head.y < 3 ? rows - 1 : (head.y >= rows ? 3 : head.y);
-  
-  if (checkCollision(head, snake) || checkWallCollision(head)) { endGame(); return; }
-  
+  if (checkCollision(head, snake)) { triggerGameOver("لقد أكلت نفسك! 🐍"); return; }
+  if (checkWallCollision(head)) { triggerGameOver("اصطدمت بالعائق! 🧱"); return; }
   snake.unshift(head);
   let ate = false;
   for (let i = foods.length - 1; i >= 0; i--) {
     if (head.x === foods[i].x && head.y === foods[i].y) {
       if (foods[i].type === 'Gold') lastGoldPos = {x: head.x, y: head.y};
-      applyEffect(foods[i].type); foods.splice(i, 1); ate = true; break;
+      score += (foods[i].type === 'Gold' ? 5 : (foods[i].type === 'Blue' ? 2 : 1));
+      foods.splice(i, 1); ate = true; break;
     }
   }
   if (!ate) {
     let tail = snake.pop();
-    if (lastGoldPos && tail.x === lastGoldPos.x && tail.y === lastGoldPos.y) { 
-      walls.push({...lastGoldPos}); lastGoldPos = null; 
-    }
+    if (lastGoldPos && tail.x === lastGoldPos.x && tail.y === lastGoldPos.y) { walls.push({...lastGoldPos}); lastGoldPos = null; }
   }
   spawnFood();
 }
@@ -188,28 +149,30 @@ function drawUI() {
   fill(50); textSize(width * 0.05); textAlign(LEFT, CENTER);
   text(` ⭐ ${score}`, 20, gridSize * 1.5);
   textAlign(CENTER); text(`🏆 ${highScore}`, width/2, gridSize * 1.5);
-  
-  // زر Pause
   push();
-  fill(240); stroke(200); rect(width - 45, 10, 35, 35, 8);
-  fill(80); noStroke();
+  if (gameState === 'PAUSED') fill(46, 204, 113); else fill(240);
+  stroke(200); rect(width - 45, 10, 35, 35, 8);
+  fill(gameState === 'PAUSED' ? 255 : 80); noStroke();
   if (gameState === 'PLAY') { rect(width-37, 18, 6, 18); rect(width-26, 18, 6, 18); }
   else { triangle(width-35, 18, width-35, 36, width-20, 27); }
   pop();
-
   if (msgTimer > 0) {
-    textAlign(CENTER); textSize(width * 0.09); fill(255, 100, 0);
+    textAlign(CENTER, CENTER); textSize(width * 0.1); fill(255, 100, 0);
     text(msg, width/2, height/2); msgTimer--;
   }
+}
+
+function triggerGameOver(reason) {
+  gameOverReason = reason;
+  if (score > highScore) { highScore = score; localStorage.setItem('snakeHighScore', highScore); }
+  gameState = 'GAMEOVER';
 }
 
 function drawElements() {
   fill(255); noStroke(); rect(0, gridSize*3, width, height);
   fill(120); walls.forEach(w => rect(w.x * gridSize + 1, w.y * gridSize + 1, gridSize - 2, gridSize - 2, 4));
   foods.forEach(f => {
-    if (f.type === 'Normal') fill(255, 70, 70); 
-    else if (f.type === 'Gold') fill(255, 215, 0); 
-    else fill(50, 150, 255);
+    if (f.type === 'Normal') fill(255, 70, 70); else if (f.type === 'Gold') fill(255, 215, 0); else fill(50, 150, 255);
     ellipse(f.x * gridSize + gridSize/2, f.y * gridSize + gridSize/2, gridSize - 6);
   });
   snake.forEach((p, i) => {
@@ -218,18 +181,14 @@ function drawElements() {
   });
 }
 
-function checkCollision(head, body) {
-  for (let i = 1; i < body.length; i++) if (head.x === body[i].x && head.y === body[i].y) return true;
-  return false;
+function checkLevelUp() {
+  let oldL = level; level = 1 + floor(score / 10);
+  if (level > oldL) { showMsg("LV " + level); if (level === 5) for(let i=0; i<5; i++) spawnWall(); }
 }
-function checkWallCollision(obj) { return walls.some(w => w.x === obj.x && w.y === obj.y); }
+function showMsg(t) { msg = t; msgTimer = 60; } // مدة أقصر كما طلبت
 function spawnFood() {
   while (foods.filter(f => f.type === 'Normal').length < 2) {
     let f = { x: floor(random(cols)), y: floor(random(3, rows)), type: 'Normal' };
-    if (!checkWallCollision(f)) foods.push(f);
-  }
-  if (level >= 5 && foods.length < 4 && random(1) < 0.01) {
-    let f = { x: floor(random(cols)), y: floor(random(3, rows)), type: random(['Gold', 'Blue']) };
     if (!checkWallCollision(f)) foods.push(f);
   }
 }
@@ -237,22 +196,14 @@ function spawnWall() {
   let w = { x: floor(random(cols)), y: floor(random(4, rows)) };
   if (!checkWallCollision(w) && dist(w.x, w.y, snake[0].x, snake[0].y) > 5) walls.push(w);
 }
-function applyEffect(type) { score += (type === 'Gold' ? 5 : (type === 'Blue' ? 2 : 1)); }
-function checkLevelUp() {
-  let oldL = level; level = 1 + floor(score / 10);
-  if (level > oldL) { 
-    showMsg("LEVEL " + level);
-    if (level === 5) for(let i=0; i<5; i++) spawnWall();
-  }
+function checkCollision(head, body) {
+  for (let i = 1; i < body.length; i++) if (head.x === body[i].x && head.y === body[i].y) return true;
+  return false;
 }
-function showMsg(t) { msg = t; msgTimer = 120; }
+function checkWallCollision(obj) { return walls.some(w => w.x === obj.x && w.y === obj.y); }
 function initGame() {
   snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
   foods = []; walls = []; score = 0; level = 1; nextDir = 'RIGHT'; dir = 'RIGHT'; spawnFood();
-}
-function endGame() {
-  if (score > highScore) { highScore = score; localStorage.setItem('snakeHighScore', highScore); }
-  gameState = 'MENU';
 }
 function drawJoystick() {
   if (touchPoint) {
