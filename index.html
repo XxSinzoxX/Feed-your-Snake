@@ -81,24 +81,33 @@ function drawPauseScreen() {
 }
 
 function drawUI() {
-  // شريط المعلومات العلوي
+  // 1. رسم شريط المعلومات العلوي (الخلفية البيضاء)
   fill(255); noStroke(); rect(0, 0, width, gridSize * 3);
-  fill(50); textSize(width * 0.05); textAlign(LEFT, CENTER);
-  text(` ⭐ ${score}`, 20, gridSize * 1.5);
-  textAlign(CENTER); text(`🏆 ${highScore}`, width/2, gridSize * 1.5);
   
-  // زر الإيقاف العلوي (تصميم جديد بارز جداً)
+  // 2. ضبط إعدادات النص العام (اللون والحجم والسمك)
+  fill(50); textSize(width * 0.05); textStyle(BOLD);
+  
+  // 3. يمين الشريط: عرض النتيجة الحالية ⭐
+  textAlign(LEFT, CENTER);
+  text(` ⭐ ${score}`, 20, gridSize * 1.5);
+  
+  // 4. منتصف الشريط: عرض المستوى الحالي بدلاً من الـ High Score 🏆
+  // قمنا بتغيير اللون للأخضر لتمييز المستوى
+  textAlign(CENTER, CENTER);
+  fill(46, 204, 113); 
+  text(`LVL: ${level}`, width/2, gridSize * 1.5);
+  
+  // 5. يسار الشريط: زر الإيقاف العلوي (الأحمر)
   push();
   let btnX = width - 60, btnY = 15, btnS = 45;
-  fill(231, 76, 60); // لون أحمر مميز للزر ليظهر فوق الخلفية
-  noStroke();
-  rect(btnX, btnY, btnS, btnS, 8);
-  fill(255);
-  // رسم خطين متوازيين للإيقاف
-  rect(btnX + 13, btnY + 12, 6, 21, 2);
-  rect(btnX + 26, btnY + 12, 6, 21, 2);
+  fill(231, 76, 60); noStroke(); // لون أحمر مميز
+  rect(btnX, btnY, btnS, btnS, 8); // رسم جسم الزر
+  fill(255); // لون الأيقونة (أبيض)
+  rect(btnX + 13, btnY + 12, 6, 21, 2); // الخط الأول ||
+  rect(btnX + 26, btnY + 12, 6, 21, 2); // الخط الثاني ||
   pop();
 
+  // 6. رسائل المستوى المؤقتة (مثل LVL UP)
   if (msgTimer > 0) {
     textAlign(CENTER, CENTER); textSize(width * 0.1); fill(255, 100, 0);
     text(msg, width/2, height/2); msgTimer--;
