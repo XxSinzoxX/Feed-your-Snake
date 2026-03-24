@@ -7,7 +7,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
   <style>
     body { margin: 0; padding: 0; overflow: hidden; background-color: #111; display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none; font-family: sans-serif; }
-    canvas { display: block; box-shadow: 0 0 30px rgba(0,0,0,0.7); border: 2px solid #333; }
+    canvas { display: block; box-shadow: 0 0 30px rgba(0,0,0,0.8); border: 2px solid #444; }
   </style>
 </head>
 <body>
@@ -44,12 +44,12 @@ function gameLoop() {
   drawElements();
   drawUI();
   drawJoystick();
+
   if (gameState === 'PAUSED') {
-    fill(0, 150); rect(0, 0, width, height);
-    fill(255); textAlign(CENTER, CENTER); textSize(width * 0.12); textStyle(BOLD);
-    text("PAUSED", width/2, height/2);
+    drawPauseScreen();
     return;
   }
+
   let speed = 7 + floor(level / 2.5);
   frameRate(speed);
   updateSnake();
@@ -57,6 +57,55 @@ function gameLoop() {
   checkLevelUp();
 }
 
+function drawPauseScreen() {
+  // تغطية الشاشة بطبقة شبه شفافة
+  fill(0, 150);
+  rect(0, 0, width, height);
+  
+  // رسم مربع الإيقاف البارز في المنتصف
+  push();
+  fill(255);
+  noStroke();
+  textAlign(CENTER, CENTER);
+  textSize(width * 0.12);
+  textStyle(BOLD);
+  text("PAUSED", width/2, height/2 - 40);
+  
+  // رسم زر "استئناف" ضخم وواضح
+  fill(46, 204, 113);
+  rect(width/2 - 60, height/2 + 20, 120, 50, 10);
+  fill(255);
+  textSize(width * 0.05);
+  text("RESUME", width/2, height/2 + 45);
+  pop();
+}
+
+function drawUI() {
+  // شريط المعلومات العلوي
+  fill(255); noStroke(); rect(0, 0, width, gridSize * 3);
+  fill(50); textSize(width * 0.05); textAlign(LEFT, CENTER);
+  text(` ⭐ ${score}`, 20, gridSize * 1.5);
+  textAlign(CENTER); text(`🏆 ${highScore}`, width/2, gridSize * 1.5);
+  
+  // زر الإيقاف العلوي (تصميم جديد بارز جداً)
+  push();
+  let btnX = width - 60, btnY = 15, btnS = 45;
+  fill(231, 76, 60); // لون أحمر مميز للزر ليظهر فوق الخلفية
+  noStroke();
+  rect(btnX, btnY, btnS, btnS, 8);
+  fill(255);
+  // رسم خطين متوازيين للإيقاف
+  rect(btnX + 13, btnY + 12, 6, 21, 2);
+  rect(btnX + 26, btnY + 12, 6, 21, 2);
+  pop();
+
+  if (msgTimer > 0) {
+    textAlign(CENTER, CENTER); textSize(width * 0.1); fill(255, 100, 0);
+    text(msg, width/2, height/2); msgTimer--;
+  }
+}
+
+// ... (باقي الوظائف التقنية كما هي لضمان استقرار اللعبة)
 function drawMenu() {
   background(255); textAlign(CENTER, CENTER);
   fill(46, 204, 113); textSize(width * 0.15); textStyle(BOLD);
@@ -84,7 +133,7 @@ function drawHowToPlay() {
 }
 
 function drawGameOver() {
-  fill(0, 180); rect(0, 0, width, height);
+  fill(0, 200); rect(0, 0, width, height);
   textAlign(CENTER, CENTER); fill(255, 50, 50); textSize(width * 0.12); textStyle(BOLD);
   text("GAME OVER", width/2, height * 0.25);
   fill(255); textSize(width * 0.05); textStyle(NORMAL);
@@ -109,37 +158,6 @@ function drawGuideItem(y, txt, col) {
   fill(50); text(txt, width * 0.3, y);
 }
 
-function drawUI() {
-  fill(255); noStroke(); rect(0, 0, width, gridSize * 3);
-  fill(50); textSize(width * 0.05); textAlign(LEFT, CENTER);
-  text(` ⭐ ${score}`, 20, gridSize * 1.5);
-  textAlign(CENTER); text(`🏆 ${highScore}`, width/2, gridSize * 1.5);
-  
-  // --- تطوير زر الإيقاف (Pause Button) ---
-  push();
-  let btnX = width - 55, btnY = 15, btnS = 40;
-  // خلفية الزر
-  if (gameState === 'PAUSED') fill(255, 165, 0); // برتقالي عند الإيقاف ليكون واضحاً جداً
-  else fill(240); 
-  stroke(100); strokeWeight(2);
-  rect(btnX, btnY, btnS, btnS, 10);
-  
-  // أيقونة الزر
-  noStroke(); fill(gameState === 'PAUSED' ? 255 : 50);
-  if (gameState === 'PLAY') {
-    rect(btnX + 11, btnY + 10, 6, 20, 2);
-    rect(btnX + 23, btnY + 10, 6, 20, 2);
-  } else {
-    triangle(btnX + 13, btnY + 10, btnX + 13, btnY + 30, btnX + 31, btnY + 20);
-  }
-  pop();
-
-  if (msgTimer > 0) {
-    textAlign(CENTER, CENTER); textSize(width * 0.1); fill(255, 100, 0);
-    text(msg, width/2, height/2); msgTimer--;
-  }
-}
-
 function touchStarted() {
   if (gameState === 'MENU') {
     if (mouseY > height * 0.6 - 30 && mouseY < height * 0.6 + 30) { initGame(); gameState = 'PLAY'; }
@@ -149,10 +167,15 @@ function touchStarted() {
   } else if (gameState === 'GAMEOVER') {
     if (mouseY > height * 0.65 - 30 && mouseY < height * 0.65 + 30) { initGame(); gameState = 'PLAY'; }
     if (mouseY > height * 0.77 - 30 && mouseY < height * 0.77 + 30) gameState = 'MENU';
+  } else if (gameState === 'PAUSED') {
+    // الضغط على زر الاستئناف في شاشة التوقف
+    if (mouseX > width/2 - 60 && mouseX < width/2 + 60 && mouseY > height/2 + 20 && mouseY < height/2 + 70) {
+      gameState = 'PLAY';
+    }
   } else {
-    // منطقة الضغط على زر الإيقاف
-    if (mouseX > width - 65 && mouseY < 65) { 
-      gameState = (gameState === 'PLAY') ? 'PAUSED' : 'PLAY'; 
+    // الضغط على زر الإيقاف العلوي
+    if (mouseX > width - 70 && mouseY < 70) { 
+      gameState = 'PAUSED'; 
       return false; 
     }
     if (gameState === 'PLAY') touchPoint = {x: mouseX, y: mouseY};
