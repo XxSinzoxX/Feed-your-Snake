@@ -12,10 +12,10 @@
 </head>
 <body>
 <script>
-let snake = [], foods = [], walls = [];
-let dir = 'RIGHT', nextDir = 'RIGHT';
+let snake = [], aiSnake = [], foods = [], walls = [];
+let dir = 'RIGHT', nextDir = 'RIGHT', aiDir = 'RIGHT';
 let score = 0, level = 1, highScore = 0;
-let gameState = 'MENU'; // MENU, PLAY, PAUSED, HOW_TO_PLAY, GAMEOVER
+let gameState = 'MENU'; 
 let gameOverReason = "";
 let gridSize = 20, cols, rows;
 let touchPoint = null, msg = "", msgTimer = 0;
@@ -52,6 +52,7 @@ function gameLoop() {
   let speed = 7 + floor(level / 2.5);
   frameRate(speed);
   updateSnake();
+  if (level >= 10) updateAISnake();
   checkLevelUp();
 }
 
@@ -69,13 +70,19 @@ function drawMenu() {
 }
 
 function drawHowToPlay() {
-  background(250); fill(50); textAlign(CENTER); textSize(width * 0.1); text("Guide", width/2, height * 0.15);
-  textAlign(LEFT); textSize(width * 0.045);
-  let startY = height * 0.25, gap = height * 0.08;
+  background(250); fill(50); textAlign(CENTER); textSize(width * 0.1); textStyle(BOLD);
+  text("Guide", width/2, height * 0.12);
+  
+  textAlign(LEFT); textStyle(NORMAL); textSize(width * 0.042);
+  let startY = height * 0.22, gap = height * 0.085;
+  
   drawGuideItem(startY, "🔴 +1 Score", '#ff4646');
   drawGuideItem(startY + gap, "🟡 +5 & Leaves Wall", '#ffd700');
-  drawGuideItem(startY + gap*2, "🔵 +2 & Shrinks", '#3296ff');
-  drawGuideItem(startY + gap*3, "🧱 Don't hit walls!", '#787878');
+  drawGuideItem(startY + gap*2, "🔵 +2 & Shrinks Snake", '#3296ff');
+  drawGuideItem(startY + gap*3, "🧱 Wall: Don't hit it!", '#787878');
+  drawGuideItem(startY + gap*4, "🐍 Lv 10: Enemy AI appears!", '#e74c3c');
+
+  // زر Back في المنتصف تماماً
   drawButton("BACK", height * 0.85, '#95a5a6');
 }
 
@@ -99,7 +106,9 @@ function drawButton(txt, y, col) {
 }
 
 function drawGuideItem(y, txt, col) {
-  fill(col); ellipse(width * 0.2, y, 20);
+  fill(col); 
+  if (col === '#e74c3c') rect(width * 0.18, y - 10, 20, 20, 4); // شكل الثعبان العدو
+  else ellipse(width * 0.2, y, 20);
   fill(50); text(txt, width * 0.3, y);
 }
 
@@ -144,6 +153,28 @@ function updateSnake() {
   spawnFood();
 }
 
+function updateAISnake() {
+  if (!aiSnake.length) aiSnake = [{x: 2, y: 5}];
+  let head = { ...aiSnake[0] };
+  let target = foods[0];
+  if (target) {
+    if (head.x < target.x && aiDir !== 'LEFT') aiDir = 'RIGHT';
+    else if (head.x > target.x && aiDir !== 'RIGHT') aiDir = 'LEFT';
+    else if (head.y < target.y && aiDir !== 'UP') aiDir = 'DOWN';
+    else if (head.y > target.y && aiDir !== 'DOWN') aiDir = 'UP';
+  }
+  if (aiDir === 'RIGHT') head.x++; else if (aiDir === 'LEFT') head.x--;
+  else if (aiDir === 'UP') head.y--; else if (aiDir === 'DOWN') head.y++;
+  head.x = (head.x + cols) % cols;
+  head.y = head.y < 3 ? rows - 1 : (head.y >= rows ? 3 : head.y);
+  aiSnake.unshift(head);
+  let ate = false;
+  for (let i = foods.length - 1; i >= 0; i--) {
+    if (head.x === foods[i].x && head.y === foods[i].y) { foods.splice(i, 1); ate = true; break; }
+  }
+  if (!ate) aiSnake.pop();
+}
+
 function drawUI() {
   fill(255); noStroke(); rect(0, 0, width, gridSize * 3);
   fill(50); textSize(width * 0.05); textAlign(LEFT, CENTER);
@@ -179,13 +210,19 @@ function drawElements() {
     fill(i === 0 ? '#2ecc71' : '#27ae60');
     rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, i === 0 ? 8 : 4);
   });
+  if (level >= 10) {
+    aiSnake.forEach((p, i) => {
+      fill(i === 0 ? '#e74c3c' : '#c0392b');
+      rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, 5);
+    });
+  }
 }
 
 function checkLevelUp() {
   let oldL = level; level = 1 + floor(score / 10);
   if (level > oldL) { showMsg("LV " + level); if (level === 5) for(let i=0; i<5; i++) spawnWall(); }
 }
-function showMsg(t) { msg = t; msgTimer = 60; } // مدة أقصر كما طلبت
+function showMsg(t) { msg = t; msgTimer = 60; }
 function spawnFood() {
   while (foods.filter(f => f.type === 'Normal').length < 2) {
     let f = { x: floor(random(cols)), y: floor(random(3, rows)), type: 'Normal' };
@@ -203,7 +240,7 @@ function checkCollision(head, body) {
 function checkWallCollision(obj) { return walls.some(w => w.x === obj.x && w.y === obj.y); }
 function initGame() {
   snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
-  foods = []; walls = []; score = 0; level = 1; nextDir = 'RIGHT'; dir = 'RIGHT'; spawnFood();
+  aiSnake = []; foods = []; walls = []; score = 0; level = 1; nextDir = 'RIGHT'; dir = 'RIGHT'; spawnFood();
 }
 function drawJoystick() {
   if (touchPoint) {
