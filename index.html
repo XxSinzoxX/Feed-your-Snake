@@ -135,9 +135,9 @@ function drawHowToPlay() {
   let startY = height * 0.22, gap = height * 0.085;
   drawGuideItem(startY, "🔴 +1 Score", '#ff4646');
   drawGuideItem(startY + gap, "🟡 +5 & Leaves Wall", '#ffd700');
-  drawGuideItem(startY + gap*2, "🔵 +2 & Shrinks Snake", '#3296ff');
+  drawGuideItem(startY + gap*2, "🔵 -2 & Shrinks Snake", '#3296ff');
   drawGuideItem(startY + gap*3, "🧱 Wall: Don't hit it!", '#787878');
-  drawGuideItem(startY + gap*4, "🐍 Lv 3: Enemy AI!", '#e74c3c');
+  drawGuideItem(startY + gap*4, "🐍 Lv 3: Enemy AI!", '#9b59b6');
   drawButton("BACK", height * 0.85, '#95a5a6');
 }
 
@@ -162,9 +162,14 @@ function drawButton(txt, y, col) {
 
 function drawGuideItem(y, txt, col) {
   fill(col); 
-  if (col === '#e74c3c') rect(width * 0.18, y - 10, 20, 20, 4);
-  else ellipse(width * 0.2, y, 20);
-  fill(50); text(txt, width * 0.3, y);
+  // إذا كان اللون هو البنفسجي (لون العدو الجديد)، ارسم مربعاً بدلاً من الدائرة
+  if (col === '#9b59b6') { 
+    rect(width * 0.18, y - 10, 20, 20, 4); 
+  } else {
+    ellipse(width * 0.2, y, 20); // للأكل العادي والجدران
+  }
+  fill(50); 
+  text(txt, width * 0.3, y);
 }
 
 function touchStarted() {
@@ -307,7 +312,7 @@ function drawElements() {
   });
   if (level >= 3) {
     aiSnake.forEach((p, i) => {
-      fill(i === 0 ? '#e74c3c' : '#c0392b');
+      fill(i === 0 ? '#9b59b6' : '#8e44ad');
       rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, 5);
     });
   }
