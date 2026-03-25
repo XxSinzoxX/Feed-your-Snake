@@ -205,9 +205,27 @@ function updateSnake() {
   let ate = false;
   for (let i = foods.length - 1; i >= 0; i--) {
     if (head.x === foods[i].x && head.y === foods[i].y) {
-      if (foods[i].type === 'Gold') lastGoldPos = {x: head.x, y: head.y};
-      score += (foods[i].type === 'Gold' ? 5 : (foods[i].type === 'Blue' ? 2 : 1));
-      foods.splice(i, 1); ate = true; break;
+      let type = foods[i].type;
+      
+      // تأثير الذهب
+      if (type === 'Gold') {
+        lastGoldPos = {x: head.x, y: head.y};
+        score += 5;
+      } 
+      // تأثير الطعام الأزرق (التقلص الحقيقي)
+      else if (type === 'Blue') {
+        score += 2;
+        if (snake.length > 2) snake.pop(); // نحذف الذيل مرتين ليحدث التقلص
+        if (snake.length > 2) snake.pop(); 
+      } 
+      // الطعام العادي
+      else {
+        score += 1;
+      }
+      
+      foods.splice(i, 1); 
+      ate = true; 
+      break;
     }
   }
   if (!ate) {
@@ -218,23 +236,54 @@ function updateSnake() {
 }
 
 function updateAISnake() {
+  // 1. تقليل السرعة: يتحرك الثعبان الأحمر فقط في الإطارات الزوجية (نصف السرعة)
+  if (frameCount % 2 !== 0) return; 
+
   if (!aiSnake.length) aiSnake = [{x: 2, y: 5}];
   let head = { ...aiSnake[0] };
   let target = foods[0];
+
   if (target) {
-    if (head.x < target.x && aiDir !== 'LEFT') aiDir = 'RIGHT';
-    else if (head.x > target.x && aiDir !== 'RIGHT') aiDir = 'LEFT';
-    else if (head.y < target.y && aiDir !== 'UP') aiDir = 'DOWN';
-    else if (head.y > target.y && aiDir !== 'DOWN') aiDir = 'UP';
+    // 2. تقليل الذكاء: إضافة عامل "الغباء" أو العشوائية
+    // هنا يتحرك نحو الطعام بنسبة 60% فقط، وفي الـ 40% الباقية يتحرك عشوائياً
+    let smartMove = random(1) < 0.6; 
+
+    if (smartMove) {
+      // التحرك الذكي نحو الطعام
+      if (head.x < target.x && aiDir !== 'LEFT') aiDir = 'RIGHT';
+      else if (head.x > target.x && aiDir !== 'RIGHT') aiDir = 'LEFT';
+      else if (head.y < target.y && aiDir !== 'UP') aiDir = 'DOWN';
+      else if (head.y > target.y && aiDir !== 'DOWN') aiDir = 'UP';
+    } else {
+      // تحرك عشوائي بسيط لجعله يبدو "تائهاً" أحياناً
+      let dirs = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+      let randomDir = random(dirs);
+      // التأكد من عدم العودة للخلف مباشرة (الانتحار العكسي)
+      if ((randomDir === 'UP' && aiDir !== 'DOWN') || 
+          (randomDir === 'DOWN' && aiDir !== 'UP') ||
+          (randomDir === 'LEFT' && aiDir !== 'RIGHT') ||
+          (randomDir === 'RIGHT' && aiDir !== 'LEFT')) {
+        aiDir = randomDir;
+      }
+    }
   }
+
+  // تنفيذ الحركة
   if (aiDir === 'RIGHT') head.x++; else if (aiDir === 'LEFT') head.x--;
   else if (aiDir === 'UP') head.y--; else if (aiDir === 'DOWN') head.y++;
+  
+  // العبور من الجدران (Screen Wrap)
   head.x = (head.x + cols) % cols;
   head.y = head.y < 3 ? rows - 1 : (head.y >= rows ? 3 : head.y);
+
   aiSnake.unshift(head);
   let ate = false;
   for (let i = foods.length - 1; i >= 0; i--) {
-    if (head.x === foods[i].x && head.y === foods[i].y) { foods.splice(i, 1); ate = true; break; }
+    if (head.x === foods[i].x && head.y === foods[i].y) { 
+      foods.splice(i, 1); 
+      ate = true; 
+      break; 
+    }
   }
   if (!ate) aiSnake.pop();
 }
