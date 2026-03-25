@@ -20,6 +20,7 @@ let gameOverReason = "";
 let gridSize = 20, cols, rows;
 let touchPoint = null, msg = "", msgTimer = 0;
 let lastGoldPos = null;
+let aiRespawnTimer = 0; // مؤقت إعادة ظهور العدو
 
 function setup() {
   let canvasH = windowHeight;
@@ -53,68 +54,44 @@ function gameLoop() {
   let speed = 7 + floor(level / 2.5);
   frameRate(speed);
   updateSnake();
-  if (level >= 3) updateAISnake();
+
+  // إدارة ظهور العدو
+  if (aiRespawnTimer > 0) aiRespawnTimer--;
+  if (level >= 3 && aiRespawnTimer <= 0) updateAISnake();
+  
   checkLevelUp();
 }
 
 function drawPauseScreen() {
-  // تغطية الشاشة بطبقة شبه شفافة
-  fill(0, 150);
-  rect(0, 0, width, height);
-  
-  // رسم مربع الإيقاف البارز في المنتصف
+  fill(0, 150); rect(0, 0, width, height);
   push();
-  fill(255);
-  noStroke();
-  textAlign(CENTER, CENTER);
-  textSize(width * 0.12);
-  textStyle(BOLD);
+  fill(255); noStroke(); textAlign(CENTER, CENTER);
+  textSize(width * 0.12); textStyle(BOLD);
   text("PAUSED", width/2, height/2 - 40);
-  
-  // رسم زر "استئناف" ضخم وواضح
-  fill(46, 204, 113);
-  rect(width/2 - 60, height/2 + 20, 120, 50, 10);
-  fill(255);
-  textSize(width * 0.05);
-  text("RESUME", width/2, height/2 + 45);
+  fill(46, 204, 113); rect(width/2 - 60, height/2 + 20, 120, 50, 10);
+  fill(255); textSize(width * 0.05); text("RESUME", width/2, height/2 + 45);
   pop();
 }
 
 function drawUI() {
-  // 1. رسم شريط المعلومات العلوي (الخلفية البيضاء)
   fill(255); noStroke(); rect(0, 0, width, gridSize * 3);
-  
-  // 2. ضبط إعدادات النص العام (اللون والحجم والسمك)
   fill(50); textSize(width * 0.05); textStyle(BOLD);
+  textAlign(LEFT, CENTER); text(` ⭐ ${score}`, 20, gridSize * 1.5);
+  textAlign(CENTER, CENTER); fill(46, 204, 113); text(`LVL: ${level}`, width/2, gridSize * 1.5);
   
-  // 3. يمين الشريط: عرض النتيجة الحالية ⭐
-  textAlign(LEFT, CENTER);
-  text(` ⭐ ${score}`, 20, gridSize * 1.5);
-  
-  // 4. منتصف الشريط: عرض المستوى الحالي بدلاً من الـ High Score 🏆
-  // قمنا بتغيير اللون للأخضر لتمييز المستوى
-  textAlign(CENTER, CENTER);
-  fill(46, 204, 113); 
-  text(`LVL: ${level}`, width/2, gridSize * 1.5);
-  
-  // 5. يسار الشريط: زر الإيقاف العلوي (الأحمر)
   push();
   let btnX = width - 60, btnY = 15, btnS = 45;
-  fill(231, 76, 60); noStroke(); // لون أحمر مميز
-  rect(btnX, btnY, btnS, btnS, 8); // رسم جسم الزر
-  fill(255); // لون الأيقونة (أبيض)
-  rect(btnX + 13, btnY + 12, 6, 21, 2); // الخط الأول ||
-  rect(btnX + 26, btnY + 12, 6, 21, 2); // الخط الثاني ||
+  fill(231, 76, 60); noStroke();
+  rect(btnX, btnY, btnS, btnS, 8);
+  fill(255); rect(btnX + 13, btnY + 12, 6, 21, 2); rect(btnX + 26, btnY + 12, 6, 21, 2);
   pop();
 
-  // 6. رسائل المستوى المؤقتة (مثل LVL UP)
   if (msgTimer > 0) {
     textAlign(CENTER, CENTER); textSize(width * 0.1); fill(255, 100, 0);
     text(msg, width/2, height/2); msgTimer--;
   }
 }
 
-// ... (باقي الوظائف التقنية كما هي لضمان استقرار اللعبة)
 function drawMenu() {
   background(255); textAlign(CENTER, CENTER);
   fill(46, 204, 113); textSize(width * 0.15); textStyle(BOLD);
@@ -122,8 +99,7 @@ function drawMenu() {
   text("X-PRO", width / 2, height * 0.28);
   fill(150); textStyle(NORMAL); textSize(width * 0.04);
   text("Developer: XxSinzoxX", width / 2, height * 0.35);
-  fill(50); textSize(width * 0.06);
-  text(`🏆 Best Score: ${highScore}`, width / 2, height * 0.45);
+  fill(50); textSize(width * 0.06); text(`🏆 Best Score: ${highScore}`, width / 2, height * 0.45);
   drawButton("START GAME", height * 0.6, '#2ecc71');
   drawButton("HOW TO PLAY", height * 0.72, '#3498db');
 }
@@ -132,13 +108,14 @@ function drawHowToPlay() {
   background(250); fill(50); textAlign(CENTER); textSize(width * 0.1); textStyle(BOLD);
   text("Guide", width/2, height * 0.12);
   textAlign(LEFT); textStyle(NORMAL); textSize(width * 0.042);
-  let startY = height * 0.22, gap = height * 0.085;
+  let startY = height * 0.22, gap = height * 0.075;
   drawGuideItem(startY, "🔴 +1 Score", '#ff4646');
   drawGuideItem(startY + gap, "🟡 +5 & Leaves Wall", '#ffd700');
   drawGuideItem(startY + gap*2, "🔵 -2 & Shrinks Snake", '#3296ff');
   drawGuideItem(startY + gap*3, "🧱 Wall: Don't hit it!", '#787878');
   drawGuideItem(startY + gap*4, "🐍 Lv 3: Enemy AI!", '#9b59b6');
-  drawButton("BACK", height * 0.85, '#95a5a6');
+  drawGuideItem(startY + gap*5, "🌀 Power-up: Kills AI", '#4b0082');
+  drawButton("BACK", height * 0.88, '#95a5a6');
 }
 
 function drawGameOver() {
@@ -147,8 +124,7 @@ function drawGameOver() {
   text("GAME OVER", width/2, height * 0.25);
   fill(255); textSize(width * 0.05); textStyle(NORMAL);
   text(gameOverReason, width/2, height * 0.35);
-  fill(46, 204, 113); textSize(width * 0.08);
-  text(`Score: ${score}`, width/2, height * 0.45);
+  fill(46, 204, 113); textSize(width * 0.08); text(`Score: ${score}`, width/2, height * 0.45);
   drawButton("RETRY", height * 0.65, '#2ecc71');
   drawButton("MAIN MENU", height * 0.77, '#95a5a6');
 }
@@ -162,39 +138,12 @@ function drawButton(txt, y, col) {
 
 function drawGuideItem(y, txt, col) {
   fill(col); 
-  // إذا كان اللون هو البنفسجي (لون العدو الجديد)، ارسم مربعاً بدلاً من الدائرة
-  if (col === '#9b59b6') { 
+  if (col === '#9b59b6' || col === '#4b0082') { 
     rect(width * 0.18, y - 10, 20, 20, 4); 
   } else {
-    ellipse(width * 0.2, y, 20); // للأكل العادي والجدران
+    ellipse(width * 0.2, y, 20);
   }
-  fill(50); 
-  text(txt, width * 0.3, y);
-}
-
-function touchStarted() {
-  if (gameState === 'MENU') {
-    if (mouseY > height * 0.6 - 30 && mouseY < height * 0.6 + 30) { initGame(); gameState = 'PLAY'; }
-    if (mouseY > height * 0.72 - 30 && mouseY < height * 0.72 + 30) gameState = 'HOW_TO_PLAY';
-  } else if (gameState === 'HOW_TO_PLAY') {
-    if (mouseY > height * 0.85 - 30 && mouseY < height * 0.85 + 30) gameState = 'MENU';
-  } else if (gameState === 'GAMEOVER') {
-    if (mouseY > height * 0.65 - 30 && mouseY < height * 0.65 + 30) { initGame(); gameState = 'PLAY'; }
-    if (mouseY > height * 0.77 - 30 && mouseY < height * 0.77 + 30) gameState = 'MENU';
-  } else if (gameState === 'PAUSED') {
-    // الضغط على زر الاستئناف في شاشة التوقف
-    if (mouseX > width/2 - 60 && mouseX < width/2 + 60 && mouseY > height/2 + 20 && mouseY < height/2 + 70) {
-      gameState = 'PLAY';
-    }
-  } else {
-    // الضغط على زر الإيقاف العلوي
-    if (mouseX > width - 70 && mouseY < 70) { 
-      gameState = 'PAUSED'; 
-      return false; 
-    }
-    if (gameState === 'PLAY') touchPoint = {x: mouseX, y: mouseY};
-  }
-  return false;
+  fill(50); text(txt, width * 0.3, y);
 }
 
 function updateSnake() {
@@ -211,26 +160,13 @@ function updateSnake() {
   for (let i = foods.length - 1; i >= 0; i--) {
     if (head.x === foods[i].x && head.y === foods[i].y) {
       let type = foods[i].type;
-      
-      // تأثير الذهب
-      if (type === 'Gold') {
-        lastGoldPos = {x: head.x, y: head.y};
-        score += 5;
-      } 
-      // تأثير الطعام الأزرق (التقلص الحقيقي)
-      else if (type === 'Blue') {
-        score += 2;
-        if (snake.length > 2) snake.pop(); // نحذف الذيل مرتين ليحدث التقلص
-        if (snake.length > 2) snake.pop(); 
-      } 
-      // الطعام العادي
-      else {
-        score += 1;
+      if (type === 'Gold') { lastGoldPos = {x: head.x, y: head.y}; score += 5; }
+      else if (type === 'Blue') { score += 2; if (snake.length > 2) { snake.pop(); snake.pop(); } }
+      else if (type === 'PowerUp') { 
+        aiSnake = []; aiRespawnTimer = 500; score += 15; showMsg("ENEMY DESTROYED!"); 
       }
-      
-      foods.splice(i, 1); 
-      ate = true; 
-      break;
+      else { score += 1; }
+      foods.splice(i, 1); ate = true; break;
     }
   }
   if (!ate) {
@@ -241,54 +177,32 @@ function updateSnake() {
 }
 
 function updateAISnake() {
-  // 1. تقليل السرعة: يتحرك الثعبان الأحمر فقط في الإطارات الزوجية (نصف السرعة)
   if (frameCount % 2 !== 0) return; 
-
   if (!aiSnake.length) aiSnake = [{x: 2, y: 5}];
   let head = { ...aiSnake[0] };
   let target = foods[0];
-
   if (target) {
-    // 2. تقليل الذكاء: إضافة عامل "الغباء" أو العشوائية
-    // هنا يتحرك نحو الطعام بنسبة 60% فقط، وفي الـ 40% الباقية يتحرك عشوائياً
     let smartMove = random(1) < 0.6; 
-
     if (smartMove) {
-      // التحرك الذكي نحو الطعام
       if (head.x < target.x && aiDir !== 'LEFT') aiDir = 'RIGHT';
       else if (head.x > target.x && aiDir !== 'RIGHT') aiDir = 'LEFT';
       else if (head.y < target.y && aiDir !== 'UP') aiDir = 'DOWN';
       else if (head.y > target.y && aiDir !== 'DOWN') aiDir = 'UP';
     } else {
-      // تحرك عشوائي بسيط لجعله يبدو "تائهاً" أحياناً
       let dirs = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
       let randomDir = random(dirs);
-      // التأكد من عدم العودة للخلف مباشرة (الانتحار العكسي)
-      if ((randomDir === 'UP' && aiDir !== 'DOWN') || 
-          (randomDir === 'DOWN' && aiDir !== 'UP') ||
-          (randomDir === 'LEFT' && aiDir !== 'RIGHT') ||
-          (randomDir === 'RIGHT' && aiDir !== 'LEFT')) {
-        aiDir = randomDir;
-      }
+      if ((randomDir === 'UP' && aiDir !== 'DOWN') || (randomDir === 'DOWN' && aiDir !== 'UP') ||
+          (randomDir === 'LEFT' && aiDir !== 'RIGHT') || (randomDir === 'RIGHT' && aiDir !== 'LEFT')) { aiDir = randomDir; }
     }
   }
-
-  // تنفيذ الحركة
   if (aiDir === 'RIGHT') head.x++; else if (aiDir === 'LEFT') head.x--;
   else if (aiDir === 'UP') head.y--; else if (aiDir === 'DOWN') head.y++;
-  
-  // العبور من الجدران (Screen Wrap)
   head.x = (head.x + cols) % cols;
   head.y = head.y < 3 ? rows - 1 : (head.y >= rows ? 3 : head.y);
-
   aiSnake.unshift(head);
   let ate = false;
   for (let i = foods.length - 1; i >= 0; i--) {
-    if (head.x === foods[i].x && head.y === foods[i].y) { 
-      foods.splice(i, 1); 
-      ate = true; 
-      break; 
-    }
+    if (head.x === foods[i].x && head.y === foods[i].y) { foods.splice(i, 1); ate = true; break; }
   }
   if (!ate) aiSnake.pop();
 }
@@ -303,18 +217,21 @@ function drawElements() {
   fill(255); noStroke(); rect(0, gridSize*3, width, height);
   fill(120); walls.forEach(w => rect(w.x * gridSize + 1, w.y * gridSize + 1, gridSize - 2, gridSize - 2, 4));
   foods.forEach(f => {
-    if (f.type === 'Normal') fill(255, 70, 70); else if (f.type === 'Gold') fill(255, 215, 0); else fill(50, 150, 255);
+    if (f.type === 'Normal') fill(255, 70, 70); 
+    else if (f.type === 'Gold') fill(255, 215, 0); 
+    else if (f.type === 'Blue') fill(50, 150, 255);
+    else if (f.type === 'PowerUp') {
+       fill(75, 0, 130); stroke(255, 255, 0); strokeWeight(2);
+       push();
+       translate(f.x * gridSize + gridSize/2, f.y * gridSize + gridSize/2);
+       rotate(frameCount * 0.1); rect(0, 0, gridSize - 4, gridSize - 4, 3);
+       pop(); noStroke(); strokeWeight(1); return;
+    }
     ellipse(f.x * gridSize + gridSize/2, f.y * gridSize + gridSize/2, gridSize - 6);
   });
-  snake.forEach((p, i) => {
-    fill(i === 0 ? '#2ecc71' : '#27ae60');
-    rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, i === 0 ? 8 : 4);
-  });
-  if (level >= 3) {
-    aiSnake.forEach((p, i) => {
-      fill(i === 0 ? '#9b59b6' : '#8e44ad');
-      rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, 5);
-    });
+  snake.forEach((p, i) => { fill(i === 0 ? '#2ecc71' : '#27ae60'); rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, i === 0 ? 8 : 4); });
+  if (level >= 3 && aiSnake.length > 0) {
+    aiSnake.forEach((p, i) => { fill(i === 0 ? '#9b59b6' : '#8e44ad'); rect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2, 5); });
   }
 }
 
@@ -322,42 +239,41 @@ function checkLevelUp() {
   let oldL = level; level = 1 + floor(score / 10);
   if (level > oldL) { showMsg("LV " + level); if (level === 2) for(let i=0; i<5; i++) spawnWall(); }
 }
-function showMsg(t) { msg = t; msgTimer = 60; }
+
 function spawnFood() {
-  // أولاً: التأكد دائماً من وجود طعام عادي (أحمر)
   while (foods.filter(f => f.type === 'Normal').length < 2) {
     let f = { x: floor(random(cols)), y: floor(random(3, rows)), type: 'Normal' };
     if (!checkWallCollision(f)) foods.push(f);
   }
-
-  // ثانياً: منطق ظهور الأطعمة الخاصة (الذهبية والزرقاء)
-  // تظهر فقط إذا كان السكور أكبر من 5، وكان هناك أقل من 3 أطعمة خاصة على الشاشة
   if (score >= 5 && foods.length < 5) {
-    // احتمال 2% في كل إطار ظهور طعام خاص
     if (random(1) < 0.02) { 
-      let specialType = random(['Gold', 'Blue']);
+      let typeList = ['Gold', 'Blue'];
+      // السلاح يظهر فقط إذا كان العدو حياً وموجوداً
+      if (level >= 3 && aiSnake.length > 0) typeList.push('PowerUp');
+      let specialType = random(typeList);
       let f = { x: floor(random(cols)), y: floor(random(3, rows)), type: specialType };
-      
-      // التأكد من أن المكان ليس فيه عائق أو ثعبان
-      if (!checkWallCollision(f)) {
-        foods.push(f);
-      }
+      if (!checkWallCollision(f)) foods.push(f);
     }
   }
 }
+
 function spawnWall() {
   let w = { x: floor(random(cols)), y: floor(random(4, rows)) };
   if (!checkWallCollision(w) && dist(w.x, w.y, snake[0].x, snake[0].y) > 5) walls.push(w);
 }
+
 function checkCollision(head, body) {
   for (let i = 1; i < body.length; i++) if (head.x === body[i].x && head.y === body[i].y) return true;
   return false;
 }
+
 function checkWallCollision(obj) { return walls.some(w => w.x === obj.x && w.y === obj.y); }
+
 function initGame() {
   snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
-  aiSnake = []; foods = []; walls = []; score = 0; level = 1; nextDir = 'RIGHT'; dir = 'RIGHT'; spawnFood();
+  aiSnake = []; foods = []; walls = []; score = 0; level = 1; nextDir = 'RIGHT'; dir = 'RIGHT'; spawnFood(); aiRespawnTimer = 0;
 }
+
 function drawJoystick() {
   if (touchPoint) {
     fill(0, 20); noStroke(); ellipse(touchPoint.x, touchPoint.y, 80);
@@ -365,6 +281,25 @@ function drawJoystick() {
     ellipse(constrain(mouseX, touchPoint.x - 40, touchPoint.x + 40), constrain(mouseY, touchPoint.y - 40, touchPoint.y + 40), 40);
   }
 }
+
+function touchStarted() {
+  if (gameState === 'MENU') {
+    if (mouseY > height * 0.6 - 30 && mouseY < height * 0.6 + 30) { initGame(); gameState = 'PLAY'; }
+    if (mouseY > height * 0.72 - 30 && mouseY < height * 0.72 + 30) gameState = 'HOW_TO_PLAY';
+  } else if (gameState === 'HOW_TO_PLAY') {
+    if (mouseY > height * 0.85 - 30 && mouseY < height * 0.85 + 30) gameState = 'MENU';
+  } else if (gameState === 'GAMEOVER') {
+    if (mouseY > height * 0.65 - 30 && mouseY < height * 0.65 + 30) { initGame(); gameState = 'PLAY'; }
+    if (mouseY > height * 0.77 - 30 && mouseY < height * 0.77 + 30) gameState = 'MENU';
+  } else if (gameState === 'PAUSED') {
+    if (mouseX > width/2 - 60 && mouseX < width/2 + 60 && mouseY > height/2 + 20 && mouseY < height/2 + 70) gameState = 'PLAY';
+  } else {
+    if (mouseX > width - 70 && mouseY < 70) { gameState = 'PAUSED'; return false; }
+    if (gameState === 'PLAY') touchPoint = {x: mouseX, y: mouseY};
+  }
+  return false;
+}
+
 function touchEnded() {
   if (!touchPoint) return;
   let dx = mouseX - touchPoint.x, dy = mouseY - touchPoint.y;
@@ -377,6 +312,8 @@ function touchEnded() {
   }
   touchPoint = null; return false;
 }
+
+function showMsg(t) { msg = t; msgTimer = 60; }
 </script>
 </body>
 </html>
